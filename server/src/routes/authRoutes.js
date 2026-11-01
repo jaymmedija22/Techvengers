@@ -30,10 +30,10 @@ router.post("/register", async (req, res) => {
 
   try {
     // Check if email already exists
-    const existingUser = await pool.query(
-      "SELECT userid FROM users WHERE email = $1",
-      [email]
-    );
+   const existingUser = await pool.query(
+  "SELECT userid FROM app_user WHERE email = $1",
+  [email]
+);
 
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
@@ -44,11 +44,28 @@ router.post("/register", async (req, res) => {
 
     // Insert new user into the database
     const result = await pool.query(
-      `INSERT INTO users (firstname, lastname, email)
-       VALUES ($1, $2, $3)
-       RETURNING userid, firstname, lastname, email, role, status, stamp`,
-      [firstName, lastName, email]
-    );
+  `WITH new_user AS (
+    INSERT INTO app_user (firstname, lastname, email, role_id)
+    VALUES (
+      $1,
+      $2,
+      $3,
+      (SELECT role_id FROM role WHERE role_name = 'User')
+    )
+    RETURNING userid, firstname, lastname, email, role_id, status, stamp
+  )
+  SELECT
+    u.userid,
+    u.firstname,
+    u.lastname,
+    u.email,
+    r.role_name AS role,
+    u.status,
+    u.stamp
+  FROM new_user u
+  JOIN role r ON r.role_id = u.role_id`,
+  [firstName, lastName, email]
+);
 
     return res.status(201).json({
       status: "success",
