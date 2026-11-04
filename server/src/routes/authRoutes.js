@@ -1,9 +1,9 @@
-
 const express = require("express");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 const pool = require("../config/database");
+const { sendPasswordResetEmail } = require("../services/emailService");
 
 const router = express.Router();
 
@@ -21,13 +21,37 @@ const loginLimiter = rateLimit({
 
 // Limit repeated first-time password setup attempts.
 const passwordSetupLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     status: "error",
     message: "Too many password setup attempts. Please try again after 15 minutes.",
+  },
+});
+
+// Limit repeated forgot-password requests.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: "error",
+    message: "Too many password reset requests. Please try again after 15 minutes.",
+  },
+});
+
+// Limit repeated password reset attempts.
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: "error",
+    message: "Too many password reset attempts. Please try again after 15 minutes.",
   },
 });
 
@@ -42,7 +66,6 @@ router.post("/login", loginLimiter, async (req, res) => {
 
   const password = body.password;
 
-  // Validate required fields.
   if (!email || typeof password !== "string" || password.length === 0) {
     return res.status(400).json({
       status: "error",
@@ -51,7 +74,6 @@ router.post("/login", loginLimiter, async (req, res) => {
   }
 
   try {
-    // Find the account and its role.
     const result = await pool.query(
       `SELECT
          u.userid,
@@ -72,7 +94,6 @@ router.post("/login", loginLimiter, async (req, res) => {
 
     const user = result.rows[0];
 
-    // Use a generic response for unknown emails and incorrect passwords.
     if (!user) {
       return res.status(401).json({
         status: "error",
@@ -80,7 +101,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    // Reject blocked accounts.
     if (user.isblocked) {
       return res.status(403).json({
         status: "error",
@@ -88,7 +108,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    // Only approved and active accounts may sign in.
     if (user.status?.toLowerCase() !== "active") {
       return res.status(403).json({
         status: "error",
@@ -96,7 +115,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    // Accounts without a password need first-time password setup.
     if (!user.passwordhash) {
       return res.status(403).json({
         status: "error",
@@ -105,7 +123,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    // Verify the submitted password against the stored bcrypt hash.
     const passwordMatches = await bcrypt.compare(
       password,
       user.passwordhash
@@ -118,7 +135,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    // Regenerate the session ID after successful authentication.
     await new Promise((resolve, reject) => {
       req.session.regenerate((error) => {
         if (error) reject(error);
@@ -126,7 +142,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     });
 
-    // Store only safe user information in the session.
     req.session.user = {
       userid: user.userid,
       firstname: user.firstname,
@@ -136,7 +151,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       role_name: user.role_name,
     };
 
-    // Save the session before responding to the frontend.
     await new Promise((resolve, reject) => {
       req.session.save((error) => {
         if (error) reject(error);
@@ -178,7 +192,6 @@ router.post("/register", async (req, res) => {
       ? body.email.trim().toLowerCase()
       : "";
 
-  // Check required fields.
   if (!firstName || !lastName || !email) {
     return res.status(400).json({
       status: "error",
@@ -186,7 +199,6 @@ router.post("/register", async (req, res) => {
     });
   }
 
-  // Check email format.
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!emailRegex.test(email)) {
@@ -197,7 +209,6 @@ router.post("/register", async (req, res) => {
   }
 
   try {
-    // Check if email already exists.
     const existingUser = await pool.query(
       "SELECT userid FROM app_user WHERE email = $1",
       [email]
@@ -210,7 +221,6 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Insert new user into the database.
     const result = await pool.query(
       `WITH new_user AS (
         INSERT INTO app_user (firstname, lastname, email, role_id)
@@ -244,7 +254,6 @@ router.post("/register", async (req, res) => {
   } catch (error) {
     console.error("Registration error:", error);
 
-    // Handle duplicate email constraint.
     if (error.code === "23505") {
       return res.status(409).json({
         status: "error",
@@ -287,8 +296,6 @@ router.get("/me", async (req, res) => {
 
     const user = result.rows[0];
 
-    // Invalidate the session if the account no longer exists,
-    // is blocked, or is not active.
     if (
       !user ||
       user.isblocked ||
@@ -312,7 +319,6 @@ router.get("/me", async (req, res) => {
       });
     }
 
-    // Return fresh account information, not stale session data.
     return res.status(200).json({
       status: "success",
       user: {
@@ -391,7 +397,6 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
   let client;
 
   try {
-    // Acquire the database connection inside the try block.
     client = await pool.connect();
 
     await client.query("BEGIN");
@@ -441,7 +446,6 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
       });
     }
 
-    // Hash the new password using bcrypt.
     const passwordHash = await bcrypt.hash(password, 12);
 
     await client.query(
@@ -451,7 +455,6 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
       [passwordHash, record.user_id]
     );
 
-    // Mark the setup token as used.
     await client.query(
       `UPDATE account_setup_token
        SET is_used = TRUE
@@ -466,7 +469,6 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
       message: "Password setup completed. You can now log in.",
     });
   } catch (error) {
-    // Roll back only if a database connection was acquired.
     if (client) {
       try {
         await client.query("ROLLBACK");
@@ -482,7 +484,206 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
       message: "Unable to complete password setup. Please try again.",
     });
   } finally {
-    // Release the connection only if it was successfully acquired.
+    if (client) {
+      client.release();
+    }
+  }
+});
+
+// POST /forgot-password - Request a password reset email.
+router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
+  const email =
+    typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+
+  const genericResponse = {
+    status: "success",
+    message:
+      "If an eligible account exists for that email, a password reset link will be sent.",
+  };
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(200).json(genericResponse);
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT userid, email
+       FROM app_user
+       WHERE LOWER(email) = $1
+         AND LOWER(status) = 'active'
+         AND isblocked = FALSE
+         AND passwordhash IS NOT NULL
+       LIMIT 1`,
+      [email]
+    );
+
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const tokenResult = await pool.query(
+      `INSERT INTO password_reset_token
+         (user_id, token_hash, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '30 minutes')
+       RETURNING password_reset_token_id`,
+      [user.userid, tokenHash]
+    );
+
+    const newTokenId = tokenResult.rows[0].password_reset_token_id;
+
+    try {
+  await sendPasswordResetEmail(user.email, token);
+} catch (emailError) {
+      try {
+        await pool.query(
+          `UPDATE password_reset_token
+           SET is_used = TRUE
+           WHERE password_reset_token_id = $1`,
+          [newTokenId]
+        );
+      } catch (tokenError) {
+        console.error(
+          "CRITICAL: Failed to invalidate reset token after email failure:",
+          tokenError
+        );
+      }
+
+      throw emailError;
+    }
+
+    await pool.query(
+      `UPDATE password_reset_token
+       SET is_used = TRUE
+       WHERE user_id = $1
+         AND password_reset_token_id <> $2
+         AND is_used = FALSE`,
+      [user.userid, newTokenId]
+    );
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error("Forgot password error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to process your request. Please try again later.",
+    });
+  }
+});
+// POST /reset-password - Reset password using a valid reset token.
+router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
+  const { token, password } = req.body || {};
+
+  if (
+    typeof token !== "string" ||
+    !token.trim() ||
+    typeof password !== "string" ||
+    password.length < 8
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "A valid reset token and a password of at least 8 characters are required.",
+    });
+  }
+
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(token.trim())
+    .digest("hex");
+
+  let client;
+
+  try {
+    client = await pool.connect();
+
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `SELECT
+         prt.password_reset_token_id,
+         prt.user_id,
+         u.isblocked,
+         u.status,
+         u.passwordhash
+       FROM password_reset_token prt
+       JOIN app_user u ON u.userid = prt.user_id
+       WHERE prt.token_hash = $1
+         AND prt.is_used = FALSE
+         AND prt.expires_at > NOW()
+       FOR UPDATE OF prt, u`,
+      [tokenHash]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        status: "error",
+        message: "This password reset link is invalid, expired, or already used.",
+      });
+    }
+
+    const user = result.rows[0];
+
+    if (
+      user.isblocked ||
+      user.status?.toLowerCase() !== "active" ||
+      !user.passwordhash
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        status: "error",
+        message: "This password reset link is invalid or unavailable.",
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await client.query(
+      `UPDATE app_user
+       SET passwordhash = $1
+       WHERE userid = $2`,
+      [passwordHash, user.user_id]
+    );
+
+    await client.query(
+      `UPDATE password_reset_token
+       SET is_used = TRUE
+       WHERE user_id = $1
+         AND is_used = FALSE`,
+      [user.user_id]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      status: "success",
+      message: "Password reset successfully. You can now log in.",
+    });
+  } catch (error) {
+    if (client) {
+      await client.query("ROLLBACK").catch(() => {});
+    }
+
+    console.error("Reset password error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to reset your password. Please try again later.",
+    });
+  } finally {
     if (client) {
       client.release();
     }

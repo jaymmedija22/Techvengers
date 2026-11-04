@@ -1,7 +1,7 @@
-
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import hopeImage from '../assets/hope.jpeg'
 import '../App.css'
 
 function Login() {
@@ -40,47 +40,92 @@ function Login() {
   }
 
   return (
-    <main className="registration-container">
-      <div className="registration-card">
-        <h1>Sign In</h1>
-        <p>Welcome back to HOPE ERP.</p>
+    <main className="login-page">
+      {/* Left side: HOPE image */}
+      <section className="login-image-panel">
+        <img src={hopeImage} alt="HOPE community at sunset" />
 
-        <form onSubmit={handleSubmit}>
-          <label htmlFor="email">Email Address</label>
-          <input
-            type="email"
-            id="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+        <div className="login-image-overlay">
+          <h1>Hope</h1>
+          <p>Building a better future together.</p>
+        </div>
+      </section>
 
-          <label htmlFor="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+      {/* Right side: Login form */}
+      <section className="login-form-panel">
+        <div className="login-brand">
+          <div className="login-brand-icon">H</div>
+          <div>
+            <h2>Hope, Inc.</h2>
+            <p>ERP System</p>
+          </div>
+        </div>
 
-          <button type="submit" disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
+        <div className="login-form-content">
+          <h1>Welcome back to Hope!</h1>
+          <p className="login-subtitle">
+            Sign in to access your account
           </p>
-        )}
 
-        <p className="signin-link">
-          Don't have an account? <Link to="/register">Register</Link>
-        </p>
-      </div>
+          <form onSubmit={handleSubmit}>
+            <label htmlFor="email">Email Address</label>
+            <input
+              type="email"
+              id="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+
+            <div className="login-forgot-password">
+              <Link to="/forgot-password">Forgot Password?</Link>
+            </div>
+
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+
+          {error && (
+            <p className="error-message" role="alert">
+              {error}
+            </p>
+          )}
+
+          <div className="login-divider">
+            <span>OR</span>
+          </div>
+
+          <button
+            type="button"
+            className="google-login-button"
+            disabled
+            title="Google sign-in is not configured yet"
+          >
+            Continue with Google
+          </button>
+
+          <p className="login-register-link">
+            Don't have an account? <Link to="/register">Register</Link>
+          </p>
+        </div>
+
+        <footer className="login-footer">
+          <p>Demo Accounts</p>
+          <small>Contact your administrator for account access.</small>
+                </footer>
+      </section>
     </main>
   )
 }
