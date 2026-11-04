@@ -191,6 +191,43 @@ function UserManagement() {
     }
   }
 
+  // Approve a pending user account
+  async function handleApproveUser(item) {
+    const confirmed = window.confirm(
+      `Are you sure you want to approve ${item.firstname} ${item.lastname}?`
+    )
+
+    if (!confirmed) return
+
+    try {
+      setSaving(true)
+      setError('')
+      setSuccess('')
+
+      const response = await fetch(
+        `http://localhost:3000/api/users/${item.userid}/approve`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to approve user account.')
+      }
+
+      setSuccess(data.message || 'User account approved successfully.')
+
+      await fetchUsers()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Block or unblock user
   async function handleToggleBlock(item) {
     const nextBlockedStatus = !item.isblocked
@@ -267,6 +304,10 @@ function UserManagement() {
 
   const blockedCount = users.filter(
     (item) => item.isblocked
+  ).length
+
+  const pendingCount = users.filter(
+    (item) => item.status?.toLowerCase() === 'pending'
   ).length
 
   if (loading) {
@@ -499,6 +540,12 @@ function UserManagement() {
             </div>
 
             <div className="user-summary-card">
+              <span>Pending Accounts</span>
+              <strong>{pendingCount}</strong>
+              <small>Awaiting approval</small>
+            </div>
+
+            <div className="user-summary-card">
               <span>Blocked Accounts</span>
               <strong>{blockedCount}</strong>
               <small>Restricted accounts</small>
@@ -622,6 +669,19 @@ function UserManagement() {
 
                         <td>
                           <div className="user-action-buttons">
+
+                            {isSuperadmin &&
+                              item.status?.toLowerCase() === 'pending' && (
+                                <button
+                                  type="button"
+                                  className="user-approve-button"
+                                  onClick={() => handleApproveUser(item)}
+                                  disabled={saving || item.isblocked}
+                                >
+                                  Approve
+                                </button>
+                              )}
+
                             <button
                               type="button"
                               className="user-edit-button"

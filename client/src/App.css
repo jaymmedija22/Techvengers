@@ -1921,3 +1921,22 @@ body {
     padding: 18px;
   }
 }
+
+.user-approve-button {
+  background-color: #198754;
+  color: white;
+  border: none;
+  padding: 7px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.user-approve-button:hover {
+  background-color: #146c43;
+}
+
+.user-approve-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
