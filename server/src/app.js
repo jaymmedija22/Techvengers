@@ -6,6 +6,7 @@ const PgSession = require("connect-pg-simple")(session);
 
 const pool = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use(
 
 // Authentication routes.
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
