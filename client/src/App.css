@@ -182,3 +182,646 @@
     border-right-color: var(--border);
   }
 }
+
+/* ================================
+   HOPE ERP LOGIN PAGE
+================================ */
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #ffffff;
+  font-family: Arial, sans-serif;
+}
+
+/* LEFT IMAGE PANEL */
+
+.login-image-panel {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.login-image-panel img {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+  object-position: center;
+}
+
+.login-image-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 50px;
+  color: white;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.55),
+    transparent 55%
+  );
+}
+
+.login-image-overlay h1 {
+  font-size: 48px;
+  margin: 0 0 10px;
+}
+
+.login-image-overlay p {
+  font-size: 18px;
+  margin: 0;
+}
+
+/* RIGHT LOGIN PANEL */
+
+.login-form-panel {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 35px 10%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-brand-icon {
+  width: 45px;
+  height: 45px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #1769aa;
+  color: white;
+  font-size: 26px;
+  font-weight: bold;
+}
+
+.login-brand h2 {
+  margin: 0;
+  color: #174f83;
+  font-size: 21px;
+}
+
+.login-brand p {
+  margin: 3px 0 0;
+  color: #777777;
+  font-size: 13px;
+}
+
+.login-form-content {
+  width: 100%;
+  max-width: 430px;
+  margin: 35px auto;
+}
+
+.login-form-content h1 {
+  color: #183b5b;
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.login-subtitle {
+  color: #777777;
+  margin-bottom: 30px;
+}
+
+.login-form-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-form-content label {
+  color: #333333;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.login-form-content input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid #d5dce5;
+  border-radius: 7px;
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+
+.login-form-content input:focus {
+  outline: none;
+  border-color: #1769aa;
+  box-shadow: 0 0 0 2px rgba(23, 105, 170, 0.12);
+}
+
+.login-forgot-password {
+  text-align: right;
+  margin: 0 0 12px;
+}
+
+.login-forgot-password a,
+.login-register-link a {
+  color: #1769aa;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.login-form-content form button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 7px;
+  background: #1769aa;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-form-content form button:hover {
+  background: #105487;
+}
+
+.login-form-content form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 25px 0;
+  color: #888888;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #dddddd;
+}
+
+.google-login-button {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #d5dce5;
+  border-radius: 7px;
+  background: white;
+  color: #444444;
+  font-size: 15px;
+}
+
+.login-register-link {
+  text-align: center;
+  margin-top: 25px;
+  color: #666666;
+}
+
+.login-footer {
+  text-align: center;
+  color: #777777;
+  font-size: 13px;
+}
+
+.login-footer p {
+  font-weight: 600;
+}
+
+/* ERROR MESSAGE */
+
+.error-message {
+  color: #c62828;
+  background: #ffebee;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+/* RESPONSIVE LAYOUT */
+
+@media (max-width: 800px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .login-image-panel {
+    min-height: 280px;
+  }
+
+  .login-form-panel {
+    min-height: 650px;
+    padding: 25px 7%;
+  }
+
+  .login-image-overlay {
+    padding: 25px;
+  }
+
+  .login-image-overlay h1 {
+    font-size: 32px;
+  }
+
+  .login-form-content h1 {
+    font-size: 27px;
+  }
+}
+
+/* ================================
+   HOPE ERP REGISTRATION PAGE
+================================ */
+
+.register-page {
+  min-height: 100vh;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  background: #ffffff;
+  font-family: Arial, sans-serif;
+}
+
+/* LEFT FORM PANEL */
+
+.register-form-panel {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 35px 9%;
+  display: flex;
+  flex-direction: column;
+}
+
+.register-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.register-brand-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #1769aa;
+  color: white;
+  font-size: 25px;
+  font-weight: bold;
+}
+
+.register-brand h2 {
+  margin: 0;
+  color: #111111;
+  font-size: 19px;
+}
+
+.register-form-content {
+  width: 100%;
+  max-width: 430px;
+  margin: 18px auto 35px;
+}
+
+.register-form-content h1 {
+  text-align: center;
+  font-size: 36px;
+  margin: 0 0 10px;
+  color: #111111;
+}
+
+.register-subtitle {
+  text-align: center;
+  color: #888888;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 28px;
+}
+
+.register-form-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.register-form-content label {
+  color: #222222;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.register-form-content input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 43px;
+  padding: 0 13px;
+  border: 1px solid #dddddd;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.register-form-content input:focus {
+  outline: none;
+  border-color: #1769aa;
+  box-shadow: 0 0 0 2px rgba(23, 105, 170, 0.12);
+}
+
+.register-form-content form button {
+  width: 100%;
+  height: 43px;
+  margin-top: 9px;
+  border: none;
+  border-radius: 25px;
+  background: #6599eb;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.register-form-content form button:hover {
+  background: #4d83d5;
+}
+
+.register-form-content form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* DIVIDER */
+
+.register-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 19px 0;
+  color: #888888;
+  font-size: 13px;
+}
+
+.register-divider::before,
+.register-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #dddddd;
+}
+
+/* GOOGLE BUTTON */
+
+.register-google-button {
+  width: 100%;
+  height: 43px;
+  border: 1px solid #dddddd;
+  border-radius: 25px;
+  background: white;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.register-signin-link {
+  text-align: center;
+  margin-top: 18px;
+  color: #888888;
+  font-size: 13px;
+}
+
+.register-signin-link a {
+  color: #6599eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ACCOUNT INFORMATION */
+
+.register-info {
+  max-width: 390px;
+  box-sizing: border-box;
+  margin: 16px auto 0;
+  padding: 11px 13px;
+  border: 1px solid #aaaaaa;
+  border-radius: 12px;
+  color: #222222;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* RIGHT IMAGE PANEL */
+
+.register-image-panel {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.register-image-panel img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* REGISTRATION MESSAGES */
+
+.register-form-content .success-message {
+  color: #237a45;
+  background: #eaf7ee;
+  padding: 11px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.register-form-content .error-message {
+  color: #c62828;
+  background: #ffebee;
+  padding: 11px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 800px) {
+  .register-page {
+    grid-template-columns: 1fr;
+  }
+
+  .register-image-panel {
+    min-height: 300px;
+    grid-row: 1;
+  }
+
+  .register-form-panel {
+    min-height: auto;
+    padding: 25px 7%;
+  }
+
+  .register-form-content {
+    margin: 35px auto;
+  }
+
+  .register-form-content h1 {
+    font-size: 30px;
+  }
+}
+
+
+/* ================================
+   PASSWORD RECOVERY PAGES
+================================ */
+
+.reset-password-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #f4f7fb;
+  font-family: Arial, sans-serif;
+}
+
+.reset-password-container {
+  width: 100%;
+  max-width: 440px;
+  padding: 36px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.reset-password-brand {
+  margin-bottom: 30px;
+  color: #174f83;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.reset-password-content h1 {
+  margin: 0 0 10px;
+  color: #183b5b;
+  font-size: 28px;
+  text-align: center;
+}
+
+.reset-password-content > p {
+  color: #777777;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.reset-password-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.reset-password-field label {
+  color: #333333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.reset-password-field input {
+  width: 100%;
+  padding: 13px;
+  box-sizing: border-box;
+  border: 1px solid #d5dce5;
+  border-radius: 7px;
+  font-size: 15px;
+}
+
+.reset-password-field input:focus {
+  outline: none;
+  border-color: #1769aa;
+  box-shadow: 0 0 0 2px rgba(23, 105, 170, 0.12);
+}
+
+.reset-password-button {
+  width: 100%;
+  margin-top: 22px;
+  padding: 14px;
+  border: none;
+  border-radius: 7px;
+  background: #1769aa;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reset-password-button:hover {
+  background: #105487;
+}
+
+.reset-password-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.reset-password-error,
+.reset-password-success {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 7px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.reset-password-error {
+  color: #c62828;
+  background: #ffebee;
+}
+
+.reset-password-success {
+  color: #237a45;
+  background: #eaf7ee;
+}
+
+.reset-password-back {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.reset-password-back a {
+  color: #1769aa;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (max-width: 480px) {
+  .reset-password-container {
+    padding: 26px 20px;
+  }
+
+  .reset-password-content h1 {
+    font-size: 24px;
+  }
+}
