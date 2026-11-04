@@ -1,6 +1,6 @@
 
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 
 function Home() {
@@ -67,9 +67,9 @@ function Home() {
         {isAdmin && (
           <div className="sidebar-admin-section">
             <span className="sidebar-section-label">ADMINISTRATOR</span>
-            <a href="#user-management" className="sidebar-link">
-              User Management
-            </a>
+            <Link to="/users" className="sidebar-link">
+  User Management
+</Link>
           </div>
         )}
 
@@ -167,18 +167,29 @@ function Home() {
 
             <h2>Quick Actions</h2>
 
-            <div className="quick-actions-grid">
-              {actions.map((action) => (
-                <a
-                  href={action.target}
-                  className="quick-action-card"
-                  key={action.name}
-                >
-                  <span>{action.icon}</span>
-                  {action.name}
-                </a>
-              ))}
-            </div>
+           <div className="quick-actions-grid">
+  {actions.map((action) =>
+    action.name === 'Manage Users' ? (
+      <Link
+        to="/users"
+        className="quick-action-card"
+        key={action.name}
+      >
+        <span>{action.icon}</span>
+        {action.name}
+      </Link>
+    ) : (
+      <a
+        href={action.target}
+        className="quick-action-card"
+        key={action.name}
+      >
+        <span>{action.icon}</span>
+        {action.name}
+      </a>
+    )
+  )}
+</div>
 
           </section>
 
