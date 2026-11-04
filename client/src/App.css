@@ -825,3 +825,502 @@ body {
     font-size: 24px;
   }
 }
+
+
+
+/* =====================================
+   HOPE ERP DASHBOARD - UI/UX DESIGN
+===================================== */
+
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 32px 18px 18px;
+  background: #202020;
+  color: #222;
+  font-family: Arial, Helvetica, sans-serif;
+  text-align: left;
+}
+
+/* LEFT SIDEBAR */
+
+.dashboard-sidebar {
+  width: 138px;
+  min-width: 138px;
+  min-height: calc(100vh - 50px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 10px 0;
+  background: #73a2ed;
+  color: #fff;
+  border-radius: 18px 0 0 18px;
+}
+
+.dashboard-brand {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px;
+  margin-bottom: 25px;
+  background: #fff;
+  border: 2px solid #dce9ff;
+  border-radius: 9px;
+  color: #222;
+  white-space: nowrap;
+}
+
+.dashboard-brand-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: #73a2ed;
+  color: white;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.dashboard-brand > span {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sidebar-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 8px 5px;
+  border-radius: 9px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  transition: background .2s;
+}
+
+.sidebar-link.active,
+.sidebar-link:hover {
+  background: #8bd57e;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,.25);
+}
+
+.sidebar-admin-section {
+  margin-top: 12px;
+}
+
+.sidebar-section-label {
+  display: block;
+  margin: 0 5px 8px;
+  color: #102c4c;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.sidebar-admin-section .sidebar-link {
+  background: #6698e8;
+  border: 1px solid rgba(255,255,255,.3);
+  box-shadow: 0 2px 4px rgba(0,0,0,.2);
+}
+
+.sidebar-bottom {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  margin-left: -10px;
+  margin-right: -10px;
+  padding: 9px 6px;
+  border-top: 1px solid rgba(255,255,255,.4);
+}
+
+.sidebar-user {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.sidebar-avatar {
+  width: 21px;
+  height: 21px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: white;
+  color: #174f83;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.sidebar-user-info {
+  min-width: 0;
+}
+
+.sidebar-user-info strong,
+.sidebar-user-info span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user-info strong {
+  color: white;
+  font-size: 9px;
+}
+
+.sidebar-user-info span {
+  margin-top: 2px;
+  color: #e5efff;
+  font-size: 7px;
+}
+
+.sidebar-logout {
+  padding: 3px 0;
+  border: none;
+  background: transparent;
+  color: #e5efff;
+  font-size: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sidebar-logout:hover {
+  color: white;
+  text-decoration: underline;
+}
+
+/* MAIN CONTENT */
+
+.dashboard-main {
+  min-width: 0;
+  min-height: calc(100vh - 50px);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 0 18px 18px 0;
+  overflow: hidden;
+}
+
+/* TOP NAVIGATION */
+
+.dashboard-topbar {
+  min-height: 54px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 18px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  position: relative;
+}
+
+.top-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.top-navigation a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #73a2ed;
+  color: white;
+  font-size: 9px;
+  text-decoration: none;
+  box-shadow: 0 2px 3px rgba(0,0,0,.25);
+  transition: background .2s;
+}
+
+.top-navigation a:hover {
+  background: #4e83d6;
+}
+
+.topbar-role {
+  position: absolute;
+  right: 16px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: #8bd57e;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+}
+
+/* DASHBOARD CONTENT */
+
+.dashboard-content {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 11px 12px 20px;
+}
+
+/* WELCOME BANNER */
+
+.dashboard-welcome {
+  min-height: 62px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #73a2ed;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,.25);
+}
+
+.dashboard-welcome h1 {
+  margin: 0 0 4px;
+  color: white;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.dashboard-welcome p {
+  color: #e5efff;
+  font-size: 10px;
+}
+
+/* STATISTICS CARDS */
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.dashboard-stat-card {
+  min-width: 0;
+  min-height: 88px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #d4d4d4;
+  border-radius: 9px;
+  background: white;
+  box-shadow: 0 2px 3px rgba(0,0,0,.25);
+}
+
+.stat-details span,
+.stat-details strong,
+.stat-details small {
+  display: block;
+}
+
+.stat-details span {
+  color: #999;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stat-details strong {
+  margin: 5px 0;
+  color: #111;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.stat-details small {
+  color: #aaa;
+  font-size: 9px;
+}
+
+/* QUICK ACTIONS */
+
+.quick-actions-section {
+  margin-top: 25px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #73a2ed;
+  box-shadow: 0 2px 4px rgba(0,0,0,.25);
+}
+
+.quick-actions-section h2 {
+  margin: 0 0 7px;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.quick-actions-grid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quick-action-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 7px;
+  background: white;
+  color: #333;
+  font-size: 9px;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 3px rgba(0,0,0,.2);
+  transition: background .2s, transform .2s;
+}
+
+.quick-action-card:hover {
+  background: #eaf2ff;
+  transform: translateY(-2px);
+}
+
+.quick-action-card > span {
+  font-size: 12px;
+}
+
+.dashboard-error {
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 7px;
+  background: #ffebee;
+  color: #c62828;
+  font-size: 12px;
+}
+
+.dashboard-loading {
+  padding: 50px;
+  color: #155da5;
+  text-align: center;
+}
+
+/* RESPONSIVE DESIGN */
+
+@media (max-width: 900px) {
+  .dashboard-topbar {
+    justify-content: flex-start;
+    padding-right: 100px;
+  }
+
+  .top-navigation {
+    justify-content: flex-start;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-layout {
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .dashboard-sidebar {
+    width: 100%;
+    min-width: 0;
+    min-height: auto;
+    padding: 10px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .dashboard-brand {
+    width: fit-content;
+    margin-bottom: 10px;
+  }
+
+  .sidebar-navigation {
+    flex-direction: row;
+  }
+
+  .sidebar-admin-section {
+    margin-top: 8px;
+  }
+
+  .sidebar-bottom {
+    margin-top: 10px;
+    padding-top: 8px;
+  }
+
+  .dashboard-main {
+    min-height: 70vh;
+    border-radius: 0 0 12px 12px;
+    overflow: visible;
+  }
+
+  .dashboard-topbar {
+    min-height: auto;
+    padding: 12px 10px;
+  }
+
+  .top-navigation {
+    gap: 5px;
+  }
+
+  .top-navigation a {
+    padding: 7px;
+    font-size: 9px;
+  }
+
+  .topbar-role {
+    position: static;
+    flex-shrink: 0;
+  }
+
+  .dashboard-content {
+    padding: 12px 10px;
+  }
+
+  .dashboard-welcome h1 {
+    font-size: 19px;
+  }
+
+  .dashboard-stats {
+    gap: 8px;
+    margin-top: 15px;
+  }
+
+  .dashboard-stat-card {
+    min-height: 80px;
+  }
+
+  .stat-details strong {
+    font-size: 23px;
+  }
+
+  .quick-actions-grid {
+    gap: 7px;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-welcome h1 {
+    font-size: 17px;
+  }
+}
