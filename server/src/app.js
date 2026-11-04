@@ -1,12 +1,50 @@
+
 const express = require("express");
 const cors = require("cors");
+const session = require("express-session");
+const PgSession = require("connect-pg-simple")(session);
+
 const pool = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
-app.use(cors());
+// A session secret is required to sign session cookies.
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is required in the server .env file.");
+}
+
+// Configure CORS so the frontend can send session cookies.
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  })
+);
+
 app.use(express.json());
+
+// Store sessions in PostgreSQL instead of server memory.
+app.use(
+  session({
+    store: new PgSession({
+      pool,
+      tableName: "session",
+    }),
+    name: "hope.sid",
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 8, // 8 hours
+    },
+  })
+);
+
+// Authentication routes.
 app.use("/api/auth", authRoutes);
 
 app.get("/api/health", (req, res) => {
