@@ -7,13 +7,15 @@
     "start": "node server.js",
     "migrate": "node scripts/migrate.js",
     "create-setup-token": "node scripts/create-account-setup-token.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "migrate-auth-users": "node scripts/migrate-existing-users-to-supabase.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "bcrypt": "^6.0.0",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.6",
