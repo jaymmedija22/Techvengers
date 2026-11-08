@@ -1,8 +1,10 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const createSupabaseAuthClient = require("../config/supabaseAuth");
 const rateLimit = require("express-rate-limit");
 const pool = require("../config/database");
+const supabaseAdmin = require("../config/supabase");
 const { sendPasswordResetEmail } = require("../services/emailService");
 
 const router = express.Router();
@@ -56,6 +58,7 @@ const resetPasswordLimiter = rateLimit({
 });
 
 // POST /login
+// POST /login - Authenticate through Supabase Auth.
 router.post("/login", loginLimiter, async (req, res) => {
   const body = req.body ?? {};
 
@@ -74,13 +77,14 @@ router.post("/login", loginLimiter, async (req, res) => {
   }
 
   try {
+    // Find the corresponding ERP account.
     const result = await pool.query(
       `SELECT
          u.userid,
          u.firstname,
          u.lastname,
          u.email,
-         u.passwordhash,
+         u.supabase_uid,
          u.isblocked,
          u.status,
          u.role_id,
@@ -101,6 +105,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
+    // Enforce ERP account restrictions before authentication.
     if (user.isblocked) {
       return res.status(403).json({
         status: "error",
@@ -115,26 +120,55 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    if (!user.passwordhash) {
+    // Only accounts linked to Supabase can use this login flow.
+    if (!user.supabase_uid) {
       return res.status(403).json({
         status: "error",
-        code: "PASSWORD_SETUP_REQUIRED",
-        message: "Your account requires first-time password setup.",
+        code: "AUTH_SETUP_REQUIRED",
+        message:
+          "Your account has not yet been configured for secure login. Please contact an administrator.",
       });
     }
 
-    const passwordMatches = await bcrypt.compare(
-      password,
-      user.passwordhash
-    );
+    // Authenticate the password through Supabase Auth.
+    const supabaseAuth = createSupabaseAuthClient();
 
-    if (!passwordMatches) {
+    const { data: authData, error: authError } =
+      await supabaseAuth.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
+
+    if (authError) {
+      if (
+        authError.code === "invalid_credentials" ||
+        authError.status === 400
+      ) {
+        return res.status(401).json({
+          status: "error",
+          message: "Invalid email or password.",
+        });
+      }
+
+      throw authError;
+    }
+
+    // Ensure the authenticated Supabase identity belongs to this ERP user.
+    if (
+      !authData.user ||
+      authData.user.id !== user.supabase_uid
+    ) {
+      console.error(
+        `Supabase identity mismatch for ERP user ${user.userid}.`
+      );
+
       return res.status(401).json({
         status: "error",
-        message: "Invalid email or password.",
+        message: "Unable to authenticate this account.",
       });
     }
 
+    // Regenerate the existing Express session.
     await new Promise((resolve, reject) => {
       req.session.regenerate((error) => {
         if (error) reject(error);
@@ -142,6 +176,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     });
 
+    // Preserve the existing ERP session structure.
     req.session.user = {
       userid: user.userid,
       firstname: user.firstname,
@@ -373,6 +408,7 @@ router.post("/logout", (req, res) => {
 });
 
 // POST /set-password - Complete first-time password setup.
+
 router.post("/set-password", passwordSetupLimiter, async (req, res) => {
   const { token, password } = req.body ?? {};
 
@@ -398,13 +434,13 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
 
   try {
     client = await pool.connect();
-
     await client.query("BEGIN");
 
     const result = await client.query(
       `SELECT
          t.account_setup_token_id,
          t.user_id,
+         u.supabase_uid,
          u.isblocked,
          u.status,
          u.passwordhash
@@ -446,6 +482,40 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
       });
     }
 
+    if (!record.supabase_uid) {
+      await client.query("ROLLBACK");
+
+      return res.status(409).json({
+        status: "error",
+        code: "SUPABASE_ACCOUNT_NOT_FOUND",
+        message:
+          "This account has not yet been configured for secure login. Please contact an administrator.",
+      });
+    }
+
+    // Update the password in Supabase Auth.
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.updateUserById(
+        record.supabase_uid,
+        {
+          password,
+          email_confirm: true,
+        }
+      );
+
+    if (authError || !authData?.user) {
+      console.error("Supabase password update error:", authError);
+
+      await client.query("ROLLBACK");
+
+      return res.status(500).json({
+        status: "error",
+        message:
+          "Unable to set your password. Please try again.",
+      });
+    }
+
+    // Preserve the existing ERP bcrypt password hash.
     const passwordHash = await bcrypt.hash(password, 12);
 
     await client.query(
@@ -455,6 +525,7 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
       [passwordHash, record.user_id]
     );
 
+    // Mark the setup token as used.
     await client.query(
       `UPDATE account_setup_token
        SET is_used = TRUE
@@ -490,6 +561,8 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
   }
 });
 
+
+
 // POST /forgot-password - Request a password reset email.
 router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
   const email =
@@ -515,6 +588,7 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
          AND LOWER(status) = 'active'
          AND isblocked = FALSE
          AND passwordhash IS NOT NULL
+         AND supabase_uid IS NOT NULL
        LIMIT 1`,
       [email]
     );
@@ -540,28 +614,23 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
       [user.userid, tokenHash]
     );
 
-    const newTokenId = tokenResult.rows[0].password_reset_token_id;
+    const newTokenId =
+      tokenResult.rows[0].password_reset_token_id;
 
     try {
-  await sendPasswordResetEmail(user.email, token);
-} catch (emailError) {
-      try {
-        await pool.query(
-          `UPDATE password_reset_token
-           SET is_used = TRUE
-           WHERE password_reset_token_id = $1`,
-          [newTokenId]
-        );
-      } catch (tokenError) {
-        console.error(
-          "CRITICAL: Failed to invalidate reset token after email failure:",
-          tokenError
-        );
-      }
+      await sendPasswordResetEmail(user.email, token);
+    } catch (emailError) {
+      await pool.query(
+        `UPDATE password_reset_token
+         SET is_used = TRUE
+         WHERE password_reset_token_id = $1`,
+        [newTokenId]
+      );
 
       throw emailError;
     }
 
+    // Invalidate previous reset links after the new email is sent.
     await pool.query(
       `UPDATE password_reset_token
        SET is_used = TRUE
@@ -581,6 +650,8 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
     });
   }
 });
+
+
 // POST /reset-password - Reset password using a valid reset token.
 router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
   const { token, password } = req.body || {};
@@ -593,7 +664,8 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
   ) {
     return res.status(400).json({
       status: "error",
-      message: "A valid reset token and a password of at least 8 characters are required.",
+      message:
+        "A valid reset token and a password of at least 8 characters are required.",
     });
   }
 
@@ -615,7 +687,8 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
          prt.user_id,
          u.isblocked,
          u.status,
-         u.passwordhash
+         u.passwordhash,
+         u.supabase_uid
        FROM password_reset_token prt
        JOIN app_user u ON u.userid = prt.user_id
        WHERE prt.token_hash = $1
@@ -630,7 +703,8 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
 
       return res.status(400).json({
         status: "error",
-        message: "This password reset link is invalid, expired, or already used.",
+        message:
+          "This password reset link is invalid, expired, or already used.",
       });
     }
 
@@ -639,18 +713,43 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     if (
       user.isblocked ||
       user.status?.toLowerCase() !== "active" ||
-      !user.passwordhash
+      !user.passwordhash ||
+      !user.supabase_uid
     ) {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
         status: "error",
-        message: "This password reset link is invalid or unavailable.",
+        message:
+          "This password reset link is invalid or unavailable.",
       });
     }
 
+    // Prepare the ERP password hash.
     const passwordHash = await bcrypt.hash(password, 12);
 
+    // Update the password in Supabase Auth first.
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.updateUserById(
+        user.supabase_uid,
+        {
+          password,
+        }
+      );
+
+    if (authError || !authData?.user) {
+      console.error("Supabase password reset error:", authError);
+
+      await client.query("ROLLBACK");
+
+      return res.status(500).json({
+        status: "error",
+        message:
+          "Unable to update your password. Please try again later.",
+      });
+    }
+
+    // Synchronize the ERP password hash.
     await client.query(
       `UPDATE app_user
        SET passwordhash = $1
@@ -658,6 +757,7 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
       [passwordHash, user.user_id]
     );
 
+    // Invalidate all reset tokens belonging to this user.
     await client.query(
       `UPDATE password_reset_token
        SET is_used = TRUE
@@ -670,7 +770,8 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
 
     return res.status(200).json({
       status: "success",
-      message: "Password reset successfully. You can now log in.",
+      message:
+        "Password reset successfully. You can now log in.",
     });
   } catch (error) {
     if (client) {
@@ -681,7 +782,8 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
 
     return res.status(500).json({
       status: "error",
-      message: "Unable to reset your password. Please try again later.",
+      message:
+        "Unable to reset your password. Please try again later.",
     });
   } finally {
     if (client) {
@@ -689,5 +791,6 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     }
   }
 });
+
 
 module.exports = router;
