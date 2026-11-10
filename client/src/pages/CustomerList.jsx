@@ -12,7 +12,9 @@ const EMPTY_FORM = {
 };
 
 function CustomerList() {
+  const [customerStatus, setCustomerStatus] = useState("active");
   const [customers, setCustomers] = useState([]);
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [search, setSearch] = useState("");
   const [payterm, setPayterm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,7 @@ function CustomerList() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
+  const [processingCustomer, setProcessingCustomer] = useState("");
 
   async function fetchCustomers() {
     setLoading(true);
@@ -29,6 +32,8 @@ function CustomerList() {
 
     try {
       const params = new URLSearchParams();
+
+      params.set("status", customerStatus);
 
       if (search.trim()) params.set("q", search.trim());
       if (payterm) params.set("payterm", payterm);
@@ -55,7 +60,7 @@ function CustomerList() {
 
   useEffect(() => {
     fetchCustomers();
-  }, [search, payterm]);
+  }, [search, payterm, customerStatus]);
 
   function openAddModal() {
     setEditingCustomer(false);
@@ -86,6 +91,7 @@ function CustomerList() {
 
   function handleFormChange(e) {
     const { name, value } = e.target;
+
     setForm((previous) => ({
       ...previous,
       [name]: value,
@@ -127,6 +133,7 @@ function CustomerList() {
 
       setModalOpen(false);
       setForm(EMPTY_FORM);
+
       setSuccess(
         editingCustomer
           ? "Customer updated successfully."
@@ -138,6 +145,59 @@ function CustomerList() {
       setError(err.message || "Something went wrong.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleCustomerStatusChange(customer) {
+    const isDeleting = customerStatus === "active";
+
+    setError("");
+    setPendingStatusChange({
+      customer,
+      isDeleting,
+    });
+  }
+
+  function closeStatusChangeModal() {
+    if (processingCustomer) return;
+    setPendingStatusChange(null);
+    setError("");
+  }
+
+  async function confirmCustomerStatusChange() {
+    if (!pendingStatusChange) return;
+
+    const { customer, isDeleting } = pendingStatusChange;
+    const action = isDeleting ? "delete" : "restore";
+
+    setError("");
+    setSuccess("");
+    setProcessingCustomer(customer.custno);
+
+    try {
+      const response = await fetch(
+        isDeleting
+          ? `${API_URL}/${encodeURIComponent(customer.custno)}`
+          : `${API_URL}/${encodeURIComponent(customer.custno)}/restore`,
+        {
+          method: isDeleting ? "DELETE" : "PATCH",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `Unable to ${action} customer.`);
+      }
+
+      setPendingStatusChange(null);
+      setSuccess(data.message || `Customer ${action}d successfully.`);
+      await fetchCustomers();
+    } catch (err) {
+      setError(err.message || `Unable to ${action} customer.`);
+    } finally {
+      setProcessingCustomer("");
     }
   }
 
@@ -162,7 +222,7 @@ function CustomerList() {
             </div>
           )}
 
-          {error && !modalOpen && (
+          {error && !modalOpen && !pendingStatusChange && (
             <div className="user-alert user-alert-error">
               {error}
             </div>
@@ -172,7 +232,11 @@ function CustomerList() {
             <div className="user-table-heading">
               <div>
                 <h2>Customer List</h2>
-                <p>Active customer records</p>
+                <p>
+                  {customerStatus === "active"
+                    ? "Active customer records"
+                    : "Deleted customer records"}
+                </p>
               </div>
 
               <div className="customer-heading-actions">
@@ -180,13 +244,15 @@ function CustomerList() {
                   {customers.length} customers
                 </span>
 
-                <button
-                  type="button"
-                  className="user-add-button"
-                  onClick={openAddModal}
-                >
-                  + Add Customer
-                </button>
+                {customerStatus === "active" && (
+                  <button
+                    type="button"
+                    className="user-add-button"
+                    onClick={openAddModal}
+                  >
+                    + Add Customer
+                  </button>
+                )}
               </div>
             </div>
 
@@ -210,6 +276,19 @@ function CustomerList() {
                 <option value="COD">COD</option>
                 <option value="30D">30 Days</option>
                 <option value="45D">45 Days</option>
+              </select>
+
+              <select
+                className="user-role-filter"
+                value={customerStatus}
+                onChange={(e) => {
+                  setCustomerStatus(e.target.value);
+                  setSuccess("");
+                  setError("");
+                }}
+              >
+                <option value="active">Active Customers</option>
+                <option value="deleted">Deleted Customers</option>
               </select>
             </div>
 
@@ -235,7 +314,7 @@ function CustomerList() {
                   ) : customers.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="user-empty-state">
-                        No customers found.
+                        No {customerStatus} customers found.
                       </td>
                     </tr>
                   ) : (
@@ -249,14 +328,46 @@ function CustomerList() {
                             {customer.payterm || "—"}
                           </span>
                         </td>
+
                         <td>
-                          <button
-                            type="button"
-                            className="customer-edit-button"
-                            onClick={() => openEditModal(customer)}
-                          >
-                            Edit
-                          </button>
+                          {customerStatus === "active" ? (
+                            <>
+                              <button
+                                type="button"
+                                className="customer-edit-button"
+                                onClick={() => openEditModal(customer)}
+                                disabled={!!processingCustomer}
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                className="customer-delete-button"
+                                onClick={() =>
+                                  handleCustomerStatusChange(customer)
+                                }
+                                disabled={!!processingCustomer}
+                              >
+                                {processingCustomer === customer.custno
+                                  ? "Deleting..."
+                                  : "Delete"}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              className="customer-restore-button"
+                              onClick={() =>
+                                handleCustomerStatusChange(customer)
+                              }
+                              disabled={!!processingCustomer}
+                            >
+                              {processingCustomer === customer.custno
+                                ? "Restoring..."
+                                : "Restore"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -266,12 +377,13 @@ function CustomerList() {
             </div>
 
             <div className="user-table-footer">
-              Showing {customers.length} customer(s)
+              Showing {customers.length} {customerStatus} customer(s)
             </div>
           </section>
         </div>
       </main>
 
+      {/* ADD / EDIT CUSTOMER MODAL */}
       {modalOpen && (
         <div
           className="customer-modal-overlay"
@@ -391,6 +503,98 @@ function CustomerList() {
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+
+      {/* DELETE / RESTORE CONFIRMATION MODAL */}
+      {pendingStatusChange && (
+        <div
+          className="customer-modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              closeStatusChangeModal();
+            }
+          }}
+        >
+          <section
+            className="customer-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-confirm-title"
+          >
+            <div
+              className={`customer-confirm-icon ${
+                pendingStatusChange.isDeleting
+                  ? "delete"
+                  : "restore"
+              }`}
+            >
+              {pendingStatusChange.isDeleting ? "!" : "↻"}
+            </div>
+
+            <h2 id="customer-confirm-title">
+              {pendingStatusChange.isDeleting
+                ? "Delete Customer?"
+                : "Restore Customer?"}
+            </h2>
+
+            <p className="customer-confirm-message">
+              {pendingStatusChange.isDeleting
+                ? "Are you sure you want to move this customer to deleted records?"
+                : "Are you sure you want to restore this customer to active records?"}
+            </p>
+
+            <div className="customer-confirm-details">
+              <span>Customer No.</span>
+              <strong>{pendingStatusChange.customer.custno}</strong>
+
+              <span>Customer Name</span>
+              <strong>{pendingStatusChange.customer.custname}</strong>
+            </div>
+
+            {pendingStatusChange.isDeleting && (
+              <p className="customer-confirm-warning">
+                This customer will no longer appear in the active customer
+                list. You can restore the record later.
+              </p>
+            )}
+
+            {error && (
+              <div className="user-alert user-alert-error">
+                {error}
+              </div>
+            )}
+
+            <div className="customer-modal-actions">
+              <button
+                type="button"
+                className="customer-cancel-button"
+                onClick={closeStatusChangeModal}
+                disabled={!!processingCustomer}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className={
+                  pendingStatusChange.isDeleting
+                    ? "customer-confirm-delete-button"
+                    : "customer-confirm-restore-button"
+                }
+                onClick={confirmCustomerStatusChange}
+                disabled={!!processingCustomer}
+              >
+                {processingCustomer
+                  ? pendingStatusChange.isDeleting
+                    ? "Deleting..."
+                    : "Restoring..."
+                  : pendingStatusChange.isDeleting
+                  ? "Yes, Delete Customer"
+                  : "Yes, Restore Customer"}
+              </button>
+            </div>
           </section>
         </div>
       )}

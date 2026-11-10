@@ -74,14 +74,23 @@ async function requireCustomerViewAccess(req, res, next) {
 // All customer-list requests require customers.view.
 router.use(requireCustomerViewAccess);
 
-// GET /api/customers?q=...&payterm=...
+// GET /api/customers?status=active|deleted&q=...&payterm=...
 router.get("/", async (req, res) => {
   try {
     const search = (req.query.q || "").trim();
     const payterm = (req.query.payterm || "").trim().toUpperCase();
+    const status = (req.query.status || "active").trim().toLowerCase();
+
+    if (!["active", "deleted"].includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid customer status.",
+      });
+    }
 
     const values = [];
-    const conditions = [];
+    const conditions = ["is_deleted = $1"];
+    values.push(status === "deleted");
 
     if (search) {
       values.push(`%${search}%`);
@@ -97,16 +106,12 @@ router.get("/", async (req, res) => {
       conditions.push(`payterm = $${values.length}`);
     }
 
-    let query = `
+    const query = `
       SELECT custno, custname, address, payterm
-      FROM vw_active_customers
+      FROM customer
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY custno ASC
     `;
-
-    if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(" AND ")}`;
-    }
-
-    query += ` ORDER BY custno ASC`;
 
     const result = await pool.query(query, values);
 
@@ -292,6 +297,82 @@ router.put("/:custno", async (req, res) => {
     return res.status(500).json({
       status: "error",
       message: "Unable to update customer.",
+    });
+  }
+});
+
+// DELETE /api/customers/:custno - Soft delete customer
+router.delete("/:custno", async (req, res) => {
+  try {
+    if (!(await requireCustomerPermission("customers.delete", req, res))) {
+      return;
+    }
+
+    const result = await pool.query(
+      `UPDATE customer
+       SET is_deleted = TRUE
+       WHERE custno = $1
+         AND is_deleted = FALSE
+       RETURNING custno, custname`,
+      [req.params.custno]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Active customer not found.",
+      });
+    }
+
+    return res.json({
+      status: "success",
+      message: "Customer moved to deleted records.",
+      customer: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Customer soft delete error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to delete customer.",
+    });
+  }
+});
+
+// PATCH /api/customers/:custno/restore - Restore customer
+router.patch("/:custno/restore", async (req, res) => {
+  try {
+    if (!(await requireCustomerPermission("customers.delete", req, res))) {
+      return;
+    }
+
+    const result = await pool.query(
+      `UPDATE customer
+       SET is_deleted = FALSE
+       WHERE custno = $1
+         AND is_deleted = TRUE
+       RETURNING custno, custname`,
+      [req.params.custno]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Deleted customer not found.",
+      });
+    }
+
+    return res.json({
+      status: "success",
+      message: "Customer restored successfully.",
+      customer: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Customer restore error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to restore customer.",
     });
   }
 });
