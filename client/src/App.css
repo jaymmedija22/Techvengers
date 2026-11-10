@@ -2253,3 +2253,213 @@ body {
   }
 }
 
+
+/* =====================================
+   CUSTOMER DELETE AND RESTORE ACTIONS
+===================================== */
+
+.customer-delete-button,
+.customer-restore-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 15px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.customer-delete-button {
+  color: #dc2626;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+}
+
+.customer-delete-button:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
+.customer-restore-button {
+  color: #15803d;
+  background: #eaf7ee;
+  border: 1px solid #bbf7d0;
+}
+
+.customer-restore-button:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.customer-delete-button:disabled,
+.customer-restore-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.customer-delete-button:focus-visible,
+.customer-restore-button:focus-visible {
+  outline: 3px solid rgba(101, 153, 235, 0.35);
+  outline-offset: 2px;
+}
+
+
+/* =====================================
+   CUSTOMER DELETE / RESTORE CONFIRMATION
+===================================== */
+
+.customer-confirm-modal {
+  width: 100%;
+  max-width: 440px;
+  padding: 30px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  animation: customerModalAppear 0.2s ease-out;
+}
+
+.customer-confirm-icon {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.customer-confirm-icon.delete {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.customer-confirm-icon.restore {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.customer-confirm-modal h2 {
+  margin: 0 0 10px;
+  color: #1f2937;
+  font-size: 22px;
+}
+
+.customer-confirm-message {
+  margin: 0 0 22px;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.customer-confirm-details {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 18px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.customer-confirm-details span {
+  color: #6b7280;
+}
+
+.customer-confirm-details strong {
+  color: #1f2937;
+  overflow-wrap: anywhere;
+}
+
+.customer-confirm-warning {
+  padding: 12px;
+  margin: 0 0 20px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.customer-confirm-delete-button,
+.customer-confirm-restore-button {
+  padding: 11px 16px;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.customer-confirm-delete-button {
+  color: #ffffff;
+  background: #dc2626;
+}
+
+.customer-confirm-delete-button:hover {
+  background: #b91c1c;
+}
+
+.customer-confirm-restore-button {
+  color: #ffffff;
+  background: #15803d;
+}
+
+.customer-confirm-restore-button:hover {
+  background: #166534;
+}
+
+.customer-confirm-delete-button:disabled,
+.customer-confirm-restore-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@keyframes customerModalAppear {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .customer-confirm-modal {
+    max-width: calc(100% - 32px);
+    padding: 22px;
+  }
+
+  .customer-confirm-details {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .customer-confirm-details strong {
+    margin-bottom: 8px;
+  }
+
+  .customer-confirm-modal .customer-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .customer-confirm-modal .customer-modal-actions button {
+    width: 100%;
+  }
+}
+
+
