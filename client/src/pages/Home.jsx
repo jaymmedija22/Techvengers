@@ -29,7 +29,7 @@ function Home() {
   const isAdmin = ['Admin', 'Superadmin'].includes(user.role_name)
 
   const modules = [
-    { name: 'Customer', icon: '👥', target: '#customer' },
+    { name: 'Customer', icon: '👥', target: '/customers' },
     { name: 'Products', icon: '📦', target: '#products' },
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales', icon: '📈', target: '#sales' },
@@ -37,7 +37,7 @@ function Home() {
   ]
 
   const actions = [
-    { name: 'View Customer', icon: '👥', target: '#customer' },
+    { name: 'View Customer', icon: '👥', target: '/customers' },
     { name: 'Manage Products', icon: '📦', target: '#products' },
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales Pipeline', icon: '📈', target: '#sales' },

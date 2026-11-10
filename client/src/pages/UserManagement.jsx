@@ -17,6 +17,13 @@ function UserManagement() {
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
 
+  // Permission management state
+  const [showRights, setShowRights] = useState(false)
+  const [rightsUser, setRightsUser] = useState(null)
+  const [rightsModules, setRightsModules] = useState([])
+  const [rightsLoading, setRightsLoading] = useState(false)
+  const [rightsSaving, setRightsSaving] = useState(false)
+
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -35,7 +42,7 @@ function UserManagement() {
   const initial = user?.firstname?.charAt(0).toUpperCase() || 'U'
 
   const modules = [
-    { name: 'Customer', target: '#customer' },
+    { name: 'Customer', target: '/customers' },
     { name: 'Products', target: '#products' },
     { name: 'Human Resources', target: '#human-resources' },
     { name: 'Sales', target: '#sales' },
@@ -87,6 +94,7 @@ function UserManagement() {
   // Open Add User form
   function openAddForm() {
     resetForm()
+    setShowRights(false)
     setError('')
     setSuccess('')
     setShowForm(true)
@@ -94,6 +102,7 @@ function UserManagement() {
 
   // Open Edit User form
   function openEditForm(item) {
+    setShowRights(false)
     setEditingUser(item)
     setFirstName(item.firstname)
     setLastName(item.lastname)
@@ -188,6 +197,103 @@ function UserManagement() {
       setError(err.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Open permission management
+  async function openRights(item) {
+    setShowForm(false)
+    setShowRights(true)
+    setRightsUser(item)
+    setRightsModules([])
+    setRightsLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/users/${item.userid}/rights`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to retrieve user rights.')
+      }
+
+      setRightsModules(data.modules || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRightsLoading(false)
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Toggle a permission checkbox
+  function toggleRight(moduleId, rightCode) {
+    setRightsModules((currentModules) =>
+      currentModules.map((module) =>
+        module.module_id === moduleId
+          ? {
+              ...module,
+              rights: module.rights.map((right) =>
+                right.right_code === rightCode
+                  ? { ...right, assigned: !right.assigned }
+                  : right
+              ),
+            }
+          : module
+      )
+    )
+  }
+
+  // Save permission assignments
+  async function handleSaveRights() {
+    if (!rightsUser) return
+
+    const rightCodes = rightsModules.flatMap((module) =>
+      module.rights
+        .filter((right) => right.assigned)
+        .map((right) => right.right_code)
+    )
+
+    try {
+      setRightsSaving(true)
+      setError('')
+      setSuccess('')
+
+      const response = await fetch(
+        `http://localhost:3000/api/users/${rightsUser.userid}/rights`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ rightCodes }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to save user rights.')
+      }
+
+      setSuccess(data.message || 'User rights updated successfully.')
+      setShowRights(false)
+      setRightsUser(null)
+      setRightsModules([])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRightsSaving(false)
     }
   }
 
@@ -375,9 +481,15 @@ function UserManagement() {
         <header className="dashboard-topbar">
           <nav className="top-navigation">
             {modules.map((module) => (
-              <a href={module.target} key={module.name}>
-                {module.name}
-              </a>
+              module.target === '/customers' ? (
+                <Link to="/customers" key={module.name}>
+                  {module.name}
+                </Link>
+              ) : (
+                <a href={module.target} key={module.name}>
+                  {module.name}
+                </a>
+              )
             ))}
           </nav>
 
@@ -525,6 +637,99 @@ function UserManagement() {
             </section>
           )}
 
+          {/* MANAGE RIGHTS */}
+          {showRights && rightsUser && (
+            <section className="user-form-card">
+              <div className="user-form-heading">
+                <div>
+                  <h2>Manage User Rights</h2>
+                  <p>
+                    Assign permissions for {rightsUser.firstname}{' '}
+                    {rightsUser.lastname}.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="user-close-button"
+                  onClick={() => {
+                    setShowRights(false)
+                    setRightsUser(null)
+                    setRightsModules([])
+                  }}
+                  disabled={rightsSaving}
+                >
+                  ×
+                </button>
+              </div>
+
+              {rightsLoading ? (
+                <div className="user-empty-state">
+                  Loading permissions...
+                </div>
+              ) : rightsModules.length === 0 ? (
+                <div className="user-empty-state">
+                  No permissions are available.
+                </div>
+              ) : (
+                <div className="rights-module-list">
+                  {rightsModules.map((module) => (
+                    <div className="rights-module-card" key={module.module_id}>
+                      <h3>{module.module_name}</h3>
+
+                      <div className="rights-checkbox-list">
+                        {module.rights.map((right) => (
+                          <label
+                            className="rights-checkbox-item"
+                            key={right.right_code}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={right.assigned}
+                              onChange={() =>
+                                toggleRight(module.module_id, right.right_code)
+                              }
+                              disabled={rightsSaving}
+                            />
+
+                            <span>
+                              <strong>{right.description}</strong>
+                              <small>{right.right_code}</small>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="user-form-actions">
+                <button
+                  type="button"
+                  className="user-cancel-button"
+                  onClick={() => {
+                    setShowRights(false)
+                    setRightsUser(null)
+                    setRightsModules([])
+                  }}
+                  disabled={rightsSaving}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  className="user-save-button"
+                  onClick={handleSaveRights}
+                  disabled={rightsSaving || rightsLoading || rightsModules.length === 0}
+                >
+                  {rightsSaving ? 'Saving Rights...' : 'Save Rights'}
+                </button>
+              </div>
+            </section>
+          )}
+
           {/* STATISTICS */}
           <section className="user-summary-grid">
             <div className="user-summary-card">
@@ -619,94 +824,111 @@ function UserManagement() {
                   </thead>
 
                   <tbody>
-                    {filteredUsers.map((item) => (
-                      <tr key={item.userid}>
-                        <td>
-                          <div className="user-name-cell">
-                            <div className="user-table-avatar">
-                              {item.firstname?.charAt(0).toUpperCase()}
+                    {filteredUsers.map((item) => {
+                      const canManageRights =
+                        item.role_name === 'User' ||
+                        (isSuperadmin && item.role_name === 'Admin')
+
+                      return (
+                        <tr key={item.userid}>
+                          <td>
+                            <div className="user-name-cell">
+                              <div className="user-table-avatar">
+                                {item.firstname?.charAt(0).toUpperCase()}
+                              </div>
+
+                              <strong>
+                                {item.firstname} {item.lastname}
+                              </strong>
                             </div>
+                          </td>
 
-                            <strong>
-                              {item.firstname} {item.lastname}
-                            </strong>
-                          </div>
-                        </td>
+                          <td>{item.email}</td>
 
-                        <td>{item.email}</td>
+                          <td>
+                            <span
+                              className={`user-role-badge ${
+                                item.role_name?.toLowerCase()
+                              }`}
+                            >
+                              {item.role_name}
+                            </span>
+                          </td>
 
-                        <td>
-                          <span
-                            className={`user-role-badge ${
-                              item.role_name?.toLowerCase()
-                            }`}
-                          >
-                            {item.role_name}
-                          </span>
-                        </td>
+                          <td>
+                            <span
+                              className={`user-status-badge ${
+                                item.status?.toLowerCase() === 'active'
+                                  ? 'active'
+                                  : 'inactive'
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </td>
 
-                        <td>
-                          <span
-                            className={`user-status-badge ${
-                              item.status?.toLowerCase() === 'active'
-                                ? 'active'
-                                : 'inactive'
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
+                          <td>
+                            <span
+                              className={`user-account-badge ${
+                                item.isblocked ? 'blocked' : 'unblocked'
+                              }`}
+                            >
+                              {item.isblocked ? 'Blocked' : 'Active'}
+                            </span>
+                          </td>
 
-                        <td>
-                          <span
-                            className={`user-account-badge ${
-                              item.isblocked ? 'blocked' : 'unblocked'
-                            }`}
-                          >
-                            {item.isblocked ? 'Blocked' : 'Active'}
-                          </span>
-                        </td>
+                          <td>
+                            <div className="user-action-buttons">
 
-                        <td>
-                          <div className="user-action-buttons">
+                              {isSuperadmin &&
+                                item.status?.toLowerCase() === 'pending' && (
+                                  <button
+                                    type="button"
+                                    className="user-approve-button"
+                                    onClick={() => handleApproveUser(item)}
+                                    disabled={saving}
+                                  >
+                                    Approve
+                                  </button>
+                                )}
 
-                            {isSuperadmin &&
-                              item.status?.toLowerCase() === 'pending' && (
+                              <button
+                                type="button"
+                                className="user-edit-button"
+                                onClick={() => openEditForm(item)}
+                                disabled={saving}
+                              >
+                                Edit
+                              </button>
+
+                              {canManageRights && (
                                 <button
                                   type="button"
-                                  className="user-approve-button"
-                                  onClick={() => handleApproveUser(item)}
-                                  disabled={saving || item.isblocked}
+                                  className="user-edit-button"
+                                  onClick={() => openRights(item)}
+                                  disabled={saving || rightsSaving}
                                 >
-                                  Approve
+                                  Manage Rights
                                 </button>
                               )}
 
-                            <button
-                              type="button"
-                              className="user-edit-button"
-                              onClick={() => openEditForm(item)}
-                              disabled={saving}
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              className={
-                                item.isblocked
-                                  ? 'user-unblock-button'
-                                  : 'user-block-button'
-                              }
-                              onClick={() => handleToggleBlock(item)}
-                              disabled={saving}
-                            >
-                              {item.isblocked ? 'Unblock' : 'Block'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              <button
+                                type="button"
+                                className={
+                                  item.isblocked
+                                    ? 'user-unblock-button'
+                                    : 'user-block-button'
+                                }
+                                onClick={() => handleToggleBlock(item)}
+                                disabled={saving}
+                              >
+                                {item.isblocked ? 'Unblock' : 'Block'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
