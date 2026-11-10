@@ -115,7 +115,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-
 // PATCH /api/users/:id/approve
 // Approve a pending ERP account, create its Supabase identity,
 // and send the password setup email.
@@ -312,7 +311,6 @@ router.patch("/:id/approve", requireSuperadmin, async (req, res) => {
     }
   }
 });
-
 
 // POST /api/users
 // Create an ERP account, create its Supabase Auth identity,
@@ -511,7 +509,6 @@ router.post("/", async (req, res) => {
     }
   }
 });
-
 
 // PUT /api/users/:id - Update an existing user account.
 router.put("/:id", async (req, res) => {
@@ -924,15 +921,22 @@ router.put("/:id/rights", async (req, res) => {
   }
 
   // Remove whitespace and duplicate codes.
-  const requestedRights = [...new Set(
-    rightCodes.map((code) => code.trim())
-  )];
+  const requestedRights = [
+    ...new Set(rightCodes.map((code) => code.trim())),
+  ];
 
   let client;
 
   try {
     client = await pool.connect();
     await client.query("BEGIN");
+
+    // Pass the logged-in ERP user ID to the database audit trigger.
+    // TRUE makes this setting local to the current transaction.
+    await client.query(
+      "SELECT set_config('app.current_user_id', $1, TRUE)",
+      [String(req.currentUser.userid)]
+    );
 
     // Lock the target account while changing its rights.
     const targetResult = await client.query(
@@ -1019,6 +1023,7 @@ router.put("/:id/rights", async (req, res) => {
     );
 
     // Revoke removed rights while preserving their history.
+    // The database trigger automatically records each revocation.
     if (rightsToRevoke.length > 0) {
       await client.query(
         `UPDATE user_permission
@@ -1029,21 +1034,10 @@ router.put("/:id/rights", async (req, res) => {
            AND is_deleted = FALSE`,
         [userId, rightsToRevoke]
       );
-
-      // Log every individual revocation.
-      await client.query(
-        `INSERT INTO audit_log (
-           actor_user_id,
-           target_user_id,
-           right_code,
-           action
-         )
-         SELECT $1, $2, unnest($3::varchar[]), 'REVOKED'`,
-        [req.currentUser.userid, userId, rightsToRevoke]
-      );
     }
 
     // Grant newly selected rights.
+    // The database trigger automatically records each grant.
     if (rightsToGrant.length > 0) {
       await client.query(
         `INSERT INTO user_permission (
@@ -1055,18 +1049,6 @@ router.put("/:id/rights", async (req, res) => {
          )
          SELECT $1, unnest($2::varchar[]), FALSE, NOW(), NULL`,
         [userId, rightsToGrant]
-      );
-
-      // Log every individual grant.
-      await client.query(
-        `INSERT INTO audit_log (
-           actor_user_id,
-           target_user_id,
-           right_code,
-           action
-         )
-         SELECT $1, $2, unnest($3::varchar[]), 'GRANTED'`,
-        [req.currentUser.userid, userId, rightsToGrant]
       );
     }
 
