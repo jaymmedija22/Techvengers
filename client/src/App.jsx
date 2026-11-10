@@ -9,6 +9,7 @@
   import ForgotPassword from './pages/ForgotPassword'
   import UserManagement from './pages/UserManagement'
   import CustomerList from './pages/CustomerList'
+  import ProductList from './pages/ProductList'
 
   function App() {
     return (
@@ -23,6 +24,7 @@
             <Route path="/home" element={<Home />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/customers" element={<CustomerList />} />
+            <Route path="/products" element={<ProductList />} />
             <Route path="/set-password" element={<SetPassword />} />
           </Routes>
         </AuthProvider>
@@ -31,3 +33,4 @@
   }
 
   export default App
+
