@@ -4,7 +4,9 @@ const pool = require("../config/database");
 
 const router = express.Router();
 
-// Require an active, authenticated account with customers.view permission.
+
+// Require an active account.
+// Superadmins automatically have access; other roles need customers.view.
 async function requireCustomerViewAccess(req, res, next) {
   if (!req.session?.user?.userid) {
     return res.status(401).json({
@@ -14,12 +16,14 @@ async function requireCustomerViewAccess(req, res, next) {
   }
 
   try {
+    // Verify the account status and retrieve its current database role.
     const userResult = await pool.query(
-      `SELECT userid
-       FROM app_user
-       WHERE userid = $1
-         AND isblocked = FALSE
-         AND LOWER(status) = 'active'`,
+      `SELECT u.userid, r.role_name
+       FROM app_user u
+       JOIN role r ON r.role_id = u.role_id
+       WHERE u.userid = $1
+         AND u.isblocked = FALSE
+         AND LOWER(u.status) = 'active'`,
       [req.session.user.userid]
     );
 
@@ -30,6 +34,14 @@ async function requireCustomerViewAccess(req, res, next) {
       });
     }
 
+    const currentUser = userResult.rows[0];
+
+    // Superadmins automatically have customer-list access.
+    if (currentUser.role_name === "Superadmin") {
+      return next();
+    }
+
+    // Other roles must have the customers.view permission.
     const permissionResult = await pool.query(
       `SELECT 1
        FROM user_permission
@@ -37,7 +49,7 @@ async function requireCustomerViewAccess(req, res, next) {
          AND right_code = 'customers.view'
          AND is_deleted = FALSE
        LIMIT 1`,
-      [req.session.user.userid]
+      [currentUser.userid]
     );
 
     if (permissionResult.rows.length === 0) {
@@ -57,6 +69,7 @@ async function requireCustomerViewAccess(req, res, next) {
     });
   }
 }
+
 
 // All customer-list requests require customers.view.
 router.use(requireCustomerViewAccess);
@@ -110,5 +123,178 @@ router.get("/", async (req, res) => {
     });
   }
 });
+
+
+const VALID_PAYMENT_TERMS = ["COD", "30D", "45D"];
+
+function validateCustomerInput(body) {
+  const custno = (body.custno || "").trim().toUpperCase();
+  const custname = (body.custname || "").trim();
+  const address = (body.address || "").trim();
+  const payterm = (body.payterm || "").trim().toUpperCase();
+
+  if (!custno || !custname) {
+    return { error: "Customer No. and Customer Name are required." };
+  }
+
+  if (custno.length > 5 || custname.length > 20 || address.length > 50) {
+    return { error: "One or more fields exceed the allowed length." };
+  }
+
+  if (payterm && !VALID_PAYMENT_TERMS.includes(payterm)) {
+    return { error: "Invalid payment term. Use COD, 30D, or 45D." };
+  }
+
+  return {
+    customer: { custno, custname, address, payterm: payterm || null },
+  };
+}
+
+// Check add/edit permission. Superadmins are automatically allowed.
+async function requireCustomerPermission(rightCode, req, res) {
+  const result = await pool.query(
+    `SELECT r.role_name
+     FROM app_user u
+     JOIN role r ON r.role_id = u.role_id
+     WHERE u.userid = $1
+       AND u.isblocked = FALSE
+       AND LOWER(u.status) = 'active'`,
+    [req.session.user.userid]
+  );
+
+  if (result.rows.length === 0) {
+    res.status(401).json({
+      status: "error",
+      message: "Your account is inactive or unavailable.",
+    });
+    return false;
+  }
+
+  if (result.rows[0].role_name === "Superadmin") {
+    return true;
+  }
+
+  const permission = await pool.query(
+    `SELECT 1
+     FROM user_permission
+     WHERE user_id = $1
+       AND right_code = $2
+       AND is_deleted = FALSE
+     LIMIT 1`,
+    [req.session.user.userid, rightCode]
+  );
+
+  if (permission.rows.length === 0) {
+    res.status(403).json({
+      status: "error",
+      message: "You do not have permission to perform this action.",
+    });
+    return false;
+  }
+
+  return true;
+}
+
+// POST /api/customers - Create customer
+router.post("/", async (req, res) => {
+  try {
+    if (!(await requireCustomerPermission("customers.add", req, res))) {
+      return;
+    }
+
+    const validation = validateCustomerInput(req.body);
+
+    if (validation.error) {
+      return res.status(400).json({
+        status: "error",
+        message: validation.error,
+      });
+    }
+
+    const { custno, custname, address, payterm } = validation.customer;
+
+    const result = await pool.query(
+      `INSERT INTO customer (custno, custname, address, payterm)
+       VALUES ($1, $2, $3, $4)
+       RETURNING custno, custname, address, payterm`,
+      [custno, custname, address || null, payterm]
+    );
+
+    return res.status(201).json({
+      status: "success",
+      message: "Customer created successfully.",
+      customer: result.rows[0],
+    });
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({
+        status: "error",
+        message: "A customer with this Customer No. already exists.",
+      });
+    }
+
+    console.error("Customer creation error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to create customer.",
+    });
+  }
+});
+
+// PUT /api/customers/:custno - Update customer
+router.put("/:custno", async (req, res) => {
+  try {
+    if (!(await requireCustomerPermission("customers.edit", req, res))) {
+      return;
+    }
+
+    const validation = validateCustomerInput({
+      ...req.body,
+      custno: req.params.custno,
+    });
+
+    if (validation.error) {
+      return res.status(400).json({
+        status: "error",
+        message: validation.error,
+      });
+    }
+
+    const { custno, custname, address, payterm } = validation.customer;
+
+    const result = await pool.query(
+      `UPDATE customer
+       SET custname = $1,
+           address = $2,
+           payterm = $3
+       WHERE custno = $4
+         AND is_deleted = FALSE
+       RETURNING custno, custname, address, payterm`,
+      [custname, address || null, payterm, custno]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Customer not found.",
+      });
+    }
+
+    return res.json({
+      status: "success",
+      message: "Customer updated successfully.",
+      customer: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Customer update error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to update customer.",
+    });
+  }
+});
+
 
 module.exports = router;

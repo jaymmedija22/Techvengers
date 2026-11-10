@@ -4,54 +4,142 @@ import { Link } from "react-router-dom";
 
 const API_URL = "http://localhost:3000/api/customers";
 
+const EMPTY_FORM = {
+  custno: "",
+  custname: "",
+  address: "",
+  payterm: "",
+};
+
 function CustomerList() {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [payterm, setPayterm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState("");
+
+  async function fetchCustomers() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const params = new URLSearchParams();
+
+      if (search.trim()) params.set("q", search.trim());
+      if (payterm) params.set("payterm", payterm);
+
+      const response = await fetch(
+        `${API_URL}?${params.toString()}`,
+        { credentials: "include" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to retrieve customers.");
+      }
+
+      setCustomers(data.customers || []);
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+      setCustomers([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    let active = true;
+    fetchCustomers();
+  }, [search, payterm]);
 
-    async function fetchCustomers() {
-      setLoading(true);
-      setError("");
+  function openAddModal() {
+    setEditingCustomer(false);
+    setForm(EMPTY_FORM);
+    setError("");
+    setSuccess("");
+    setModalOpen(true);
+  }
 
-      try {
-        const params = new URLSearchParams();
+  function openEditModal(customer) {
+    setEditingCustomer(true);
+    setForm({
+      custno: customer.custno || "",
+      custname: customer.custname || "",
+      address: customer.address || "",
+      payterm: customer.payterm || "",
+    });
+    setError("");
+    setSuccess("");
+    setModalOpen(true);
+  }
 
-        if (search.trim()) params.set("q", search.trim());
-        if (payterm) params.set("payterm", payterm);
+  function closeModal() {
+    if (saving) return;
+    setModalOpen(false);
+    setForm(EMPTY_FORM);
+  }
 
-        const response = await fetch(
-          `${API_URL}?${params.toString()}`,
-          { credentials: "include" }
-        );
+  function handleFormChange(e) {
+    const { name, value } = e.target;
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  }
 
-        const data = await response.json();
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
 
-        if (!response.ok) {
-          throw new Error(data.message || "Unable to retrieve customers.");
-        }
-
-        if (active) setCustomers(data.customers || []);
-      } catch (err) {
-        if (active) {
-          setError(err.message || "Something went wrong.");
-          setCustomers([]);
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
+    if (!form.custno.trim() || !form.custname.trim()) {
+      setError("Customer No. and Customer Name are required.");
+      return;
     }
 
-    fetchCustomers();
+    setSaving(true);
 
-    return () => {
-      active = false;
-    };
-  }, [search, payterm]);
+    try {
+      const response = await fetch(
+        editingCustomer
+          ? `${API_URL}/${encodeURIComponent(form.custno)}`
+          : API_URL,
+        {
+          method: editingCustomer ? "PUT" : "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(form),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to save customer.");
+      }
+
+      setModalOpen(false);
+      setForm(EMPTY_FORM);
+      setSuccess(
+        editingCustomer
+          ? "Customer updated successfully."
+          : "Customer created successfully."
+      );
+
+      await fetchCustomers();
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="dashboard-layout">
@@ -60,7 +148,7 @@ function CustomerList() {
           <div className="user-page-heading">
             <div>
               <h1>Customer Management</h1>
-              <p>View, search, and filter customer records.</p>
+              <p>View, search, and manage customer records.</p>
             </div>
 
             <Link to="/home" className="user-add-button">
@@ -68,7 +156,13 @@ function CustomerList() {
             </Link>
           </div>
 
-          {error && (
+          {success && (
+            <div className="user-alert user-alert-success">
+              {success}
+            </div>
+          )}
+
+          {error && !modalOpen && (
             <div className="user-alert user-alert-error">
               {error}
             </div>
@@ -81,9 +175,19 @@ function CustomerList() {
                 <p>Active customer records</p>
               </div>
 
-              <span className="user-count">
-                {customers.length} customers
-              </span>
+              <div className="customer-heading-actions">
+                <span className="user-count">
+                  {customers.length} customers
+                </span>
+
+                <button
+                  type="button"
+                  className="user-add-button"
+                  onClick={openAddModal}
+                >
+                  + Add Customer
+                </button>
+              </div>
             </div>
 
             <div className="user-table-controls">
@@ -117,19 +221,20 @@ function CustomerList() {
                     <th>CUSTOMER NAME</th>
                     <th>ADDRESS</th>
                     <th>PAYMENT TERMS</th>
+                    <th>ACTION</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="4" className="user-empty-state">
+                      <td colSpan="5" className="user-empty-state">
                         Loading customers...
                       </td>
                     </tr>
                   ) : customers.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="user-empty-state">
+                      <td colSpan="5" className="user-empty-state">
                         No customers found.
                       </td>
                     </tr>
@@ -144,6 +249,15 @@ function CustomerList() {
                             {customer.payterm || "—"}
                           </span>
                         </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="customer-edit-button"
+                            onClick={() => openEditModal(customer)}
+                          >
+                            Edit
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -157,6 +271,129 @@ function CustomerList() {
           </section>
         </div>
       </main>
+
+      {modalOpen && (
+        <div
+          className="customer-modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
+          <section
+            className="customer-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-modal-title"
+          >
+            <div className="customer-modal-header">
+              <h2 id="customer-modal-title">
+                {editingCustomer ? "Edit Customer" : "Add Customer"}
+              </h2>
+
+              <button
+                type="button"
+                className="customer-modal-close"
+                onClick={closeModal}
+                disabled={saving}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              {error && (
+                <div className="user-alert user-alert-error">
+                  {error}
+                </div>
+              )}
+
+              <div className="customer-form-group">
+                <label htmlFor="custno">Customer No.</label>
+                <input
+                  id="custno"
+                  name="custno"
+                  type="text"
+                  maxLength="5"
+                  value={form.custno}
+                  onChange={handleFormChange}
+                  placeholder="Enter customer number"
+                  required
+                  disabled={editingCustomer || saving}
+                />
+              </div>
+
+              <div className="customer-form-group">
+                <label htmlFor="custname">Customer Name</label>
+                <input
+                  id="custname"
+                  name="custname"
+                  type="text"
+                  maxLength="20"
+                  value={form.custname}
+                  onChange={handleFormChange}
+                  placeholder="Enter customer name"
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="customer-form-group">
+                <label htmlFor="address">Address</label>
+                <input
+                  id="address"
+                  name="address"
+                  type="text"
+                  maxLength="50"
+                  value={form.address}
+                  onChange={handleFormChange}
+                  placeholder="Enter customer address"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="customer-form-group">
+                <label htmlFor="payterm">Payment Terms</label>
+                <select
+                  id="payterm"
+                  name="payterm"
+                  value={form.payterm}
+                  onChange={handleFormChange}
+                  disabled={saving}
+                >
+                  <option value="">Select Payment Terms</option>
+                  <option value="COD">COD</option>
+                  <option value="30D">30 Days</option>
+                  <option value="45D">45 Days</option>
+                </select>
+              </div>
+
+              <div className="customer-modal-actions">
+                <button
+                  type="button"
+                  className="customer-cancel-button"
+                  onClick={closeModal}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="customer-save-button"
+                  disabled={saving}
+                >
+                  {saving
+                    ? "Saving..."
+                    : editingCustomer
+                    ? "Update Customer"
+                    : "Save Customer"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
