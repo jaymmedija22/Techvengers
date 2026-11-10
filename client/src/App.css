@@ -1940,3 +1940,164 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+
+/* ========================================
+   MANAGE USER RIGHTS - S2-DEV-01
+======================================== */
+
+.rights-module-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  margin-top: 18px;
+  align-items: stretch;
+}
+
+.rights-module-card {
+  min-width: 0;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.08);
+}
+
+.rights-module-card:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.rights-module-card h3 {
+  margin: 0 0 13px;
+  color: #172b4d;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.rights-checkbox-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.rights-module-card:nth-child(3) .rights-checkbox-list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rights-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 2px;
+  color: #334155;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.rights-checkbox-item input {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  margin: 0;
+  accent-color: #6599eb;
+  cursor: pointer;
+}
+
+.rights-checkbox-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rights-checkbox-item small {
+  display: block;
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.rights-checkbox-item:hover {
+  color: #1769aa;
+}
+
+.rights-module-card:nth-child(3) .rights-checkbox-item {
+  align-items: flex-start;
+}
+
+/* Rights heading */
+
+.user-form-card:has(.rights-module-list) {
+  padding: 20px;
+}
+
+.user-form-card:has(.rights-module-list) .user-form-heading {
+  margin-bottom: 12px;
+}
+
+.user-form-card:has(.rights-module-list) .user-form-heading h2 {
+  font-size: 22px;
+}
+
+/* Rights action buttons */
+
+.user-form-card:has(.rights-module-list) .user-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.user-form-card:has(.rights-module-list) .user-save-button {
+  min-width: 150px;
+  border-radius: 8px;
+  background: #6599eb;
+  border-color: #6599eb;
+}
+
+.user-form-card:has(.rights-module-list) .user-save-button:hover {
+  background: #4d83d5;
+}
+
+.user-form-card:has(.rights-module-list) .user-cancel-button {
+  min-width: 90px;
+  border-radius: 8px;
+}
+
+/* Responsive rights layout */
+
+@media (max-width: 900px) {
+  .rights-module-card:nth-child(3) .rights-checkbox-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .rights-module-list {
+    grid-template-columns: 1fr;
+  }
+
+  .rights-module-card:nth-child(3) {
+    grid-column: auto;
+  }
+
+  .rights-checkbox-list,
+  .rights-module-card:nth-child(3) .rights-checkbox-list {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .user-form-card:has(.rights-module-list) {
+    padding: 14px;
+  }
+
+  .user-form-card:has(.rights-module-list) .user-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .user-form-card:has(.rights-module-list) .user-form-actions button {
+    width: 100%;
+  }
+}
