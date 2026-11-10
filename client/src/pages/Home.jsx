@@ -30,7 +30,7 @@ function Home() {
 
   const modules = [
     { name: 'Customer', icon: '👥', target: '/customers' },
-    { name: 'Products', icon: '📦', target: '#products' },
+    { name: 'Products', icon: '📦', target: '/products' },
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales', icon: '📈', target: '#sales' },
     { name: 'Reports', icon: '📊', target: '#reports' },
@@ -38,7 +38,7 @@ function Home() {
 
   const actions = [
     { name: 'View Customer', icon: '👥', target: '/customers' },
-    { name: 'Manage Products', icon: '📦', target: '#products' },
+    { name: 'Manage Products', icon: '📦', target: '/products' },
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales Pipeline', icon: '📈', target: '#sales' },
     { name: 'Reports', icon: '📊', target: '#reports' },
@@ -200,3 +200,5 @@ function Home() {
 }
 
 export default Home
+
+
