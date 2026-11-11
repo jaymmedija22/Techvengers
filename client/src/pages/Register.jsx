@@ -1,6 +1,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import hopeImage from '../assets/hope.jpeg'
 import '../App.css'
 
 function Register() {
@@ -55,63 +56,80 @@ function Register() {
   }
 
   return (
-    <main className="registration-container">
-      <div className="registration-card">
-        <h1>Create an Account</h1>
-        <p>Register to get started with HOPE ERP.</p>
+    <main className="register-page">
+      <section className="register-form-panel">
+        <div className="register-brand">
+          <div className="register-brand-icon">H</div>
+          <h2>HOPE ERP</h2>
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          <label htmlFor="firstName">First Name</label>
-          <input
-            type="text"
-            id="firstName"
-            placeholder="Enter your first name"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            required
-          />
+        <div className="register-form-content">
+          <h1>Create an Account</h1>
 
-          <label htmlFor="lastName">Last Name</label>
-          <input
-            type="text"
-            id="lastName"
-            placeholder="Enter your last name"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            required
-          />
-
-          <label htmlFor="email">Email Address</label>
-          <input
-            type="email"
-            id="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <button type="submit" disabled={isLoading}>
-            {isLoading ? 'Registering...' : 'Register'}
-          </button>
-        </form>
-
-        {message && (
-          <p className="success-message" role="status">
-            {message}
+          <p className="register-subtitle">
+            Register to get started with HOPE ERP.
           </p>
-        )}
 
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
+          <form onSubmit={handleSubmit}>
+            <label htmlFor="firstName">First Name</label>
+            <input
+              type="text"
+              id="firstName"
+              placeholder="Enter your first name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+            />
+
+            <label htmlFor="lastName">Last Name</label>
+            <input
+              type="text"
+              id="lastName"
+              placeholder="Enter your last name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+            />
+
+            <label htmlFor="email">Email Address</label>
+            <input
+              type="email"
+              id="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? 'Registering...' : 'Register'}
+            </button>
+          </form>
+
+          {message && (
+            <p className="success-message" role="status">
+              {message}
+            </p>
+          )}
+
+          {error && (
+            <p className="error-message" role="alert">
+              {error}
+            </p>
+          )}
+
+          <p className="register-signin-link">
+            Already have an account? <Link to="/login">Sign in</Link>
           </p>
-        )}
+        </div>
+      </section>
 
-        <p className="signin-link">
-          Already have an account? <Link to="/login">Sign in</Link>
-        </p>
-      </div>
+      <section className="register-image-panel">
+       <img
+  src={hopeImage}
+  alt="HOPE ERP"
+/>
+      </section>
     </main>
   )
 }
