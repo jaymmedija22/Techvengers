@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { useAuth } from "../AuthContext";
 import { Link } from "react-router-dom";
 
 const API_URL = "http://localhost:3000/api/customers";
@@ -12,6 +13,20 @@ const EMPTY_FORM = {
 };
 
 function CustomerList() {
+  const { user } = useAuth();
+
+  // Check the user's role and assigned permissions.
+  const isSuperadmin = user?.role_name === "Superadmin";
+
+  const canAddCustomer =
+    isSuperadmin || user?.permissions?.includes("customers.add");
+
+  const canEditCustomer =
+    isSuperadmin || user?.permissions?.includes("customers.edit");
+
+  const canDeleteCustomer =
+    isSuperadmin || user?.permissions?.includes("customers.delete");
+
   const [customerStatus, setCustomerStatus] = useState("active");
   const [customers, setCustomers] = useState([]);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
@@ -244,7 +259,7 @@ function CustomerList() {
                   {customers.length} customers
                 </span>
 
-                {customerStatus === "active" && (
+                {customerStatus === "active" && canAddCustomer && (
                   <button
                     type="button"
                     className="user-add-button"
@@ -332,41 +347,47 @@ function CustomerList() {
                         <td>
                           {customerStatus === "active" ? (
                             <>
-                              <button
-                                type="button"
-                                className="customer-edit-button"
-                                onClick={() => openEditModal(customer)}
-                                disabled={!!processingCustomer}
-                              >
-                                Edit
-                              </button>
+                              {canEditCustomer && (
+                                <button
+                                  type="button"
+                                  className="customer-edit-button"
+                                  onClick={() => openEditModal(customer)}
+                                  disabled={!!processingCustomer}
+                                >
+                                  Edit
+                                </button>
+                              )}
 
+                              {canDeleteCustomer && (
+                                <button
+                                  type="button"
+                                  className="customer-delete-button"
+                                  onClick={() =>
+                                    handleCustomerStatusChange(customer)
+                                  }
+                                  disabled={!!processingCustomer}
+                                >
+                                  {processingCustomer === customer.custno
+                                    ? "Deleting..."
+                                    : "Delete"}
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            canDeleteCustomer && (
                               <button
                                 type="button"
-                                className="customer-delete-button"
+                                className="customer-restore-button"
                                 onClick={() =>
                                   handleCustomerStatusChange(customer)
                                 }
                                 disabled={!!processingCustomer}
                               >
                                 {processingCustomer === customer.custno
-                                  ? "Deleting..."
-                                  : "Delete"}
+                                  ? "Restoring..."
+                                  : "Restore"}
                               </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              className="customer-restore-button"
-                              onClick={() =>
-                                handleCustomerStatusChange(customer)
-                              }
-                              disabled={!!processingCustomer}
-                            >
-                              {processingCustomer === customer.custno
-                                ? "Restoring..."
-                                : "Restore"}
-                            </button>
+                            )
                           )}
                         </td>
                       </tr>

@@ -1,3 +1,4 @@
+
 const express = require("express");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
@@ -57,7 +58,6 @@ const resetPasswordLimiter = rateLimit({
   },
 });
 
-// POST /login
 // POST /login - Authenticate through Supabase Auth.
 router.post("/login", loginLimiter, async (req, res) => {
   const body = req.body ?? {};
@@ -176,6 +176,19 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     });
 
+    // Retrieve the user's currently assigned permissions.
+    const permissionsResult = await pool.query(
+      `SELECT right_code
+       FROM user_permission
+       WHERE user_id = $1
+         AND is_deleted = FALSE`,
+      [user.userid]
+    );
+
+    const permissions = permissionsResult.rows.map(
+      (row) => row.right_code
+    );
+
     // Preserve the existing ERP session structure.
     req.session.user = {
       userid: user.userid,
@@ -184,6 +197,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       email: user.email,
       role_id: user.role_id,
       role_name: user.role_name,
+      permissions,
     };
 
     await new Promise((resolve, reject) => {
@@ -322,7 +336,16 @@ router.get("/me", async (req, res) => {
          u.isblocked,
          u.status,
          u.role_id,
-         r.role_name
+         r.role_name,
+         COALESCE(
+           ARRAY(
+             SELECT up.right_code
+             FROM user_permission up
+             WHERE up.user_id = u.userid
+               AND up.is_deleted = FALSE
+           ),
+           ARRAY[]::varchar[]
+         ) AS permissions
        FROM app_user u
        JOIN role r ON r.role_id = u.role_id
        WHERE u.userid = $1`,
@@ -354,6 +377,9 @@ router.get("/me", async (req, res) => {
       });
     }
 
+    // Refresh the session's permission data.
+    req.session.user.permissions = user.permissions;
+
     return res.status(200).json({
       status: "success",
       user: {
@@ -363,6 +389,7 @@ router.get("/me", async (req, res) => {
         email: user.email,
         role_id: user.role_id,
         role_name: user.role_name,
+        permissions: user.permissions,
       },
     });
   } catch (error) {
@@ -408,7 +435,6 @@ router.post("/logout", (req, res) => {
 });
 
 // POST /set-password - Complete first-time password setup.
-
 router.post("/set-password", passwordSetupLimiter, async (req, res) => {
   const { token, password } = req.body ?? {};
 
@@ -561,8 +587,6 @@ router.post("/set-password", passwordSetupLimiter, async (req, res) => {
   }
 });
 
-
-
 // POST /forgot-password - Request a password reset email.
 router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
   const email =
@@ -651,7 +675,6 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
   }
 });
 
-
 // POST /reset-password - Reset password using a valid reset token.
 router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
   const { token, password } = req.body || {};
@@ -665,7 +688,7 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     return res.status(400).json({
       status: "error",
       message:
-        "A valid reset token and a password of at least 8 characters are required.",
+        "A valid password reset token and a password of at least 8 characters are required.",
     });
   }
 
@@ -791,6 +814,5 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     }
   }
 });
-
 
 module.exports = router;
