@@ -10,6 +10,11 @@ const INITIAL_FORM = {
   unit: "pc",
 };
 
+const INITIAL_PRICE_FORM = {
+  effdate: "",
+  unitprice: "",
+};
+
 function ProductList() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
@@ -26,17 +31,38 @@ function ProductList() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Product delete confirmation states
+  // Product delete states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // Product restore confirmation states
+  // Product restore states
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoringProduct, setRestoringProduct] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState("");
+
+  // Price history states
+  const [showPriceHistoryModal, setShowPriceHistoryModal] = useState(false);
+  const [selectedPriceProduct, setSelectedPriceProduct] = useState(null);
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [priceHistoryFilter, setPriceHistoryFilter] = useState("active");
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
+  const [priceHistoryError, setPriceHistoryError] = useState("");
+
+  // Add / edit price states
+  const [showPriceFormModal, setShowPriceFormModal] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(null);
+  const [priceFormData, setPriceFormData] = useState(INITIAL_PRICE_FORM);
+  const [priceFormError, setPriceFormError] = useState("");
+  const [savingPrice, setSavingPrice] = useState(false);
+
+  // Delete price states
+  const [showDeletePriceModal, setShowDeletePriceModal] = useState(false);
+  const [deletingPrice, setDeletingPrice] = useState(null);
+  const [deletingPriceLoading, setDeletingPriceLoading] = useState(false);
+  const [deletePriceError, setDeletePriceError] = useState("");
 
   // Fetch active or deleted products
   const fetchProducts = useCallback(async () => {
@@ -63,7 +89,6 @@ function ProductList() {
 
       let result = data.products || [];
 
-      // Apply search and unit filtering to deleted products
       if (showDeleted) {
         if (search.trim()) {
           const term = search.trim().toLowerCase();
@@ -88,6 +113,44 @@ function ProductList() {
       setLoading(false);
     }
   }, [search, unit, showDeleted]);
+
+  // Fetch price history
+  const fetchPriceHistory = useCallback(
+    async (product, filter = priceHistoryFilter) => {
+      if (!product) return;
+
+      setPriceHistoryLoading(true);
+      setPriceHistoryError("");
+
+      try {
+        const endpoint =
+          `${API_URL}/${encodeURIComponent(product.prodcode)}/prices` +
+          `?status=${encodeURIComponent(filter)}`;
+
+        const response = await fetch(endpoint, {
+          credentials: "include",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Unable to retrieve price history."
+          );
+        }
+
+        setPriceHistory(data.prices || []);
+      } catch (err) {
+        setPriceHistory([]);
+        setPriceHistoryError(
+          err.message || "Unable to retrieve price history."
+        );
+      } finally {
+        setPriceHistoryLoading(false);
+      }
+    },
+    [priceHistoryFilter]
+  );
 
   useEffect(() => {
     fetchProducts();
@@ -115,7 +178,7 @@ function ProductList() {
     setShowModal(true);
   };
 
-  // Close create/edit modal
+  // Close create/edit product modal
   const handleCloseModal = () => {
     if (saving) return;
 
@@ -125,7 +188,7 @@ function ProductList() {
     setFormError("");
   };
 
-  // Handle form input changes
+  // Handle product form changes
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -201,14 +264,14 @@ function ProductList() {
     }
   };
 
-  // Open delete confirmation modal
+  // Open delete product confirmation
   const handleDeleteProduct = (product) => {
     setDeletingProduct(product);
     setDeleteError("");
     setShowDeleteModal(true);
   };
 
-  // Close delete confirmation modal
+  // Close delete product confirmation
   const handleCloseDeleteModal = () => {
     if (deleting) return;
 
@@ -217,7 +280,7 @@ function ProductList() {
     setDeleteError("");
   };
 
-  // Confirm soft delete
+  // Confirm product deletion
   const handleConfirmDelete = async () => {
     if (!deletingProduct) return;
 
@@ -253,14 +316,14 @@ function ProductList() {
     }
   };
 
-  // Open restore confirmation modal
+  // Open restore product confirmation
   const handleRestoreProduct = (product) => {
     setRestoringProduct(product);
     setRestoreError("");
     setShowRestoreModal(true);
   };
 
-  // Close restore confirmation modal
+  // Close restore product confirmation
   const handleCloseRestoreModal = () => {
     if (restoring) return;
 
@@ -305,7 +368,223 @@ function ProductList() {
     }
   };
 
-  // Switch between active and deleted products
+  // Open price history modal
+  const handleOpenPriceHistory = (product) => {
+    setSelectedPriceProduct(product);
+    setPriceHistoryFilter("active");
+    setShowPriceHistoryModal(true);
+    setPriceHistory([]);
+    setPriceHistoryError("");
+
+    fetchPriceHistory(product, "active");
+  };
+
+  // Close price history modal
+  const handleClosePriceHistory = () => {
+    if (savingPrice || deletingPriceLoading) return;
+
+    setShowPriceHistoryModal(false);
+    setShowPriceFormModal(false);
+    setShowDeletePriceModal(false);
+    setSelectedPriceProduct(null);
+    setPriceHistory([]);
+    setPriceHistoryError("");
+    setEditingPrice(null);
+  };
+
+  // Change price history filter
+  const handlePriceHistoryFilter = (filter) => {
+    setPriceHistoryFilter(filter);
+
+    if (selectedPriceProduct) {
+      fetchPriceHistory(selectedPriceProduct, filter);
+    }
+  };
+
+  // Open add price form
+  const handleAddPrice = () => {
+    setEditingPrice(null);
+    setPriceFormData(INITIAL_PRICE_FORM);
+    setPriceFormError("");
+    setShowPriceFormModal(true);
+  };
+
+  // Open edit price form
+  const handleEditPrice = (price) => {
+    setEditingPrice(price);
+
+    setPriceFormData({
+      effdate: price.effdate.slice(0, 10),
+      unitprice: String(price.unitprice),
+    });
+
+    setPriceFormError("");
+    setShowPriceFormModal(true);
+  };
+
+  // Close add/edit price form
+  const handleClosePriceForm = () => {
+    if (savingPrice) return;
+
+    setShowPriceFormModal(false);
+    setEditingPrice(null);
+    setPriceFormData(INITIAL_PRICE_FORM);
+    setPriceFormError("");
+  };
+
+  // Handle price form changes
+  const handlePriceFormChange = (e) => {
+    const { name, value } = e.target;
+
+    setPriceFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  // Add or update price
+  const handlePriceSubmit = async (e) => {
+    e.preventDefault();
+
+    setPriceFormError("");
+
+    if (!selectedPriceProduct) return;
+
+    const effdate = priceFormData.effdate;
+    const unitprice = priceFormData.unitprice.trim();
+
+    if (!effdate) {
+      setPriceFormError("Effective date is required.");
+      return;
+    }
+
+    if (!unitprice || !/^\d+(\.\d{1,2})?$/.test(unitprice)) {
+      setPriceFormError(
+        "Enter a valid price with up to 2 decimal places."
+      );
+      return;
+    }
+
+    if (Number(unitprice) <= 0) {
+      setPriceFormError("Unit price must be greater than zero.");
+      return;
+    }
+
+    const isEditing = Boolean(editingPrice);
+
+    const endpoint = isEditing
+      ? `${API_URL}/${encodeURIComponent(selectedPriceProduct.prodcode)}/prices/${encodeURIComponent(editingPrice.effdate.slice(0, 10))}`
+      : `${API_URL}/${encodeURIComponent(selectedPriceProduct.prodcode)}/prices`;
+
+    try {
+      setSavingPrice(true);
+
+      const response = await fetch(endpoint, {
+        method: isEditing ? "PUT" : "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          effdate,
+          unitprice,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to save price.");
+      }
+
+      setShowPriceFormModal(false);
+      setEditingPrice(null);
+      setPriceFormData(INITIAL_PRICE_FORM);
+      setSuccess(data.message || "Price saved successfully.");
+
+      await fetchPriceHistory(selectedPriceProduct, priceHistoryFilter);
+    } catch (err) {
+      setPriceFormError(err.message || "Unable to save price.");
+    } finally {
+      setSavingPrice(false);
+    }
+  };
+
+  // Open delete price confirmation
+const handleDeletePrice = (price) => {
+
+  setDeletingPrice(price);
+  setDeletePriceError("");
+  setShowDeletePriceModal(true);
+};
+
+  // Close delete price confirmation
+  const handleCloseDeletePriceModal = () => {
+    if (deletingPriceLoading) return;
+
+    setShowDeletePriceModal(false);
+    setDeletingPrice(null);
+    setDeletePriceError("");
+  };
+
+  // Confirm price deletion
+  const handleConfirmDeletePrice = async () => {
+    if (!selectedPriceProduct || !deletingPrice) return;
+
+    try {
+      setDeletingPriceLoading(true);
+      setDeletePriceError("");
+
+      const endpoint =
+        `${API_URL}/${encodeURIComponent(selectedPriceProduct.prodcode)}` +
+        `/prices/${encodeURIComponent(deletingPrice.effdate.slice(0, 10))}`;
+
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to delete price.");
+      }
+
+      setShowDeletePriceModal(false);
+      setDeletingPrice(null);
+      setSuccess(data.message || "Price deleted successfully.");
+
+      await fetchPriceHistory(selectedPriceProduct, priceHistoryFilter);
+    } catch (err) {
+      setDeletePriceError(err.message || "Unable to delete price.");
+    } finally {
+      setDeletingPriceLoading(false);
+    }
+  };
+
+  // Format effective date
+  const formatEffectiveDate = (date) => {
+    if (!date) return "—";
+
+    const parsedDate = new Date(`${String(date).slice(0, 10)}T00:00:00`);
+
+    return Number.isNaN(parsedDate.getTime())
+      ? "—"
+      : parsedDate.toLocaleDateString();
+  };
+
+  // Format audit timestamp
+  const formatStamp = (date) => {
+    if (!date) return "—";
+
+    const parsedDate = new Date(date);
+
+    return Number.isNaN(parsedDate.getTime())
+      ? "—"
+      : parsedDate.toLocaleString();
+  };
+
+  // Switch active / deleted product views
   const handleViewChange = (deleted) => {
     setShowDeleted(deleted);
     setSearch("");
@@ -332,7 +611,7 @@ function ProductList() {
               {!showDeleted && (
                 <button
                   type="button"
-                  className="user-add-button"
+                  className="price-history-add-button"
                   onClick={handleAddProduct}
                 >
                   <span>+</span>
@@ -433,7 +712,7 @@ function ProductList() {
               </select>
             </div>
 
-            {/* TABLE */}
+            {/* PRODUCT TABLE */}
             <div className="user-table-wrapper">
               <table className="user-management-table">
                 <thead>
@@ -464,7 +743,6 @@ function ProductList() {
                     products.map((product) => (
                       <tr key={product.prodcode}>
                         <td>{product.prodcode}</td>
-
                         <td>{product.description || "—"}</td>
 
                         <td>
@@ -489,7 +767,17 @@ function ProductList() {
                               <>
                                 <button
                                   type="button"
-                                  className="customer-edit-button"
+                                  className="price-history-button"
+                                  onClick={() =>
+                                    handleOpenPriceHistory(product)
+                                  }
+                                >
+                                  Price History
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="price-history-edit-button"
                                   onClick={() =>
                                     handleEditProduct(product)
                                   }
@@ -499,7 +787,7 @@ function ProductList() {
 
                                 <button
                                   type="button"
-                                  className="product-delete-button"
+                                  className="price-history-delete-button"
                                   onClick={() =>
                                     handleDeleteProduct(product)
                                   }
@@ -529,15 +817,14 @@ function ProductList() {
       {showModal && (
         <div className="customer-modal-overlay">
           <div className="customer-modal">
-
-            <div className="customer-modal-header">
+            <div className="price-history-modal-header">
               <h2>
                 {editingProduct ? "Edit Product" : "Add Product"}
               </h2>
 
               <button
                 type="button"
-                className="customer-modal-close"
+                className="price-history-close"
                 onClick={handleCloseModal}
                 disabled={saving}
               >
@@ -554,7 +841,6 @@ function ProductList() {
             <form onSubmit={handleSubmit}>
               <div className="customer-form-group">
                 <label htmlFor="prodcode">Product Code</label>
-
                 <input
                   id="prodcode"
                   type="text"
@@ -570,7 +856,6 @@ function ProductList() {
 
               <div className="customer-form-group">
                 <label htmlFor="description">Description</label>
-
                 <input
                   id="description"
                   type="text"
@@ -584,7 +869,6 @@ function ProductList() {
 
               <div className="customer-form-group">
                 <label htmlFor="unit">Unit</label>
-
                 <select
                   id="unit"
                   name="unit"
@@ -628,6 +912,322 @@ function ProductList() {
         </div>
       )}
 
+      {/* PRICE HISTORY MODAL */}
+      {showPriceHistoryModal && selectedPriceProduct && (
+        <div className="customer-modal-overlay price-history-overlay">
+          <div className="price-history-modal">
+            <div className="customer-modal-header">
+              <div>
+                <h2>
+                  Price History — {selectedPriceProduct.prodcode}
+                </h2>
+                <p>
+                  {selectedPriceProduct.description || "No description"}{" "}
+                  ({selectedPriceProduct.unit || "—"})
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="customer-modal-close"
+                onClick={handleClosePriceHistory}
+                disabled={savingPrice || deletingPriceLoading}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="price-history-toolbar">
+              <div className="price-history-filters">
+                {["active", "inactive", "all"].map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    className={
+                      priceHistoryFilter === filter
+                        ? "price-filter-button active"
+                        : "price-filter-button"
+                    }
+                    onClick={() => handlePriceHistoryFilter(filter)}
+                  >
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="price-history-add-button"
+                onClick={handleAddPrice}
+              >
+                + Add Price
+              </button>
+            </div>
+
+            {priceHistoryError && (
+              <div className="user-alert user-alert-error">
+                {priceHistoryError}
+              </div>
+            )}
+
+           <div className="price-history-table-wrapper">
+              <table className="user-management-table price-history-table">
+                <thead>
+                  <tr>
+                    <th>EFFECTIVE DATE</th>
+                    <th>UNIT PRICE</th>
+                    <th>STATUS</th>
+                    <th>STAMP</th>
+                    <th>ACTIONS</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {priceHistoryLoading ? (
+                    <tr>
+                      <td colSpan="5" className="user-empty-state">
+                        Loading price history...
+                      </td>
+                    </tr>
+                  ) : priceHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="user-empty-state">
+                        No price history records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    priceHistory.map((price) => (
+                      <tr key={`${price.effdate}-${price.prodcode}`}>
+                        <td>{formatEffectiveDate(price.effdate)}</td>
+
+                        <td>
+                          {Number(price.unitprice).toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </td>
+
+                        <td>
+                          <span
+                            className={
+                              price.is_deleted
+                                ? "price-status inactive"
+                                : "price-status active"
+                            }
+                          >
+                            {price.is_deleted ? "Inactive" : "Active"}
+                          </span>
+                        </td>
+
+                        <td className="price-history-stamp">
+                          <div>
+                            <strong>
+                              {price.updated_at ? "UPDATED" : "CREATED"}
+                            </strong>
+                          </div>
+                          <div>
+                            {price.updated_at
+                              ? price.updated_by_name || "System"
+                              : price.created_by_name || "System"}
+                          </div>
+                          <small>
+                            {formatStamp(
+                              price.updated_at || price.created_at
+                            )}
+                          </small>
+                        </td>
+
+                        <td>
+                          <div className="user-action-buttons">
+                            {!price.is_deleted && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="price-history-edit-button"
+                                  onClick={() => handleEditPrice(price)}
+                                >
+                                  Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="price-history-delete-button"
+                                  onClick={() => handleDeletePrice(price)}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="customer-modal-actions">
+              <button
+                type="button"
+                className="customer-cancel-button"
+                onClick={handleClosePriceHistory}
+                disabled={savingPrice || deletingPriceLoading}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD / EDIT PRICE MODAL */}
+      {showPriceFormModal && (
+        <div className="customer-modal-overlay price-form-overlay">
+          <div className="customer-modal">
+            <div className="price-history-modal-header">
+              <h2>{editingPrice ? "Edit Price" : "Add Price"}</h2>
+
+              <button
+                type="button"
+                className="price-history-close"
+                onClick={handleClosePriceForm}
+                disabled={savingPrice}
+              >
+                ×
+              </button>
+            </div>
+
+            {priceFormError && (
+              <div className="user-alert user-alert-error">
+                {priceFormError}
+              </div>
+            )}
+
+            <form onSubmit={handlePriceSubmit}>
+              <div className="customer-form-group">
+                <label htmlFor="effdate">Effective Date</label>
+                <input
+                  id="effdate"
+                  type="date"
+                  name="effdate"
+                  value={priceFormData.effdate}
+                  onChange={handlePriceFormChange}
+                  disabled={savingPrice}
+                  required
+                />
+              </div>
+
+              <div className="customer-form-group">
+                <label htmlFor="unitprice">Unit Price</label>
+                <input
+                  id="unitprice"
+                  type="number"
+                  name="unitprice"
+                  placeholder="Enter unit price"
+                  min="0.01"
+                  step="0.01"
+                  value={priceFormData.unitprice}
+                  onChange={handlePriceFormChange}
+                  disabled={savingPrice}
+                  required
+                />
+              </div>
+
+              <div className="customer-modal-actions">
+                <button
+                  type="button"
+                  className="customer-cancel-button"
+                  onClick={handleClosePriceForm}
+                  disabled={savingPrice}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="customer-save-button"
+                  disabled={savingPrice}
+                >
+                  {savingPrice
+                    ? "Saving..."
+                    : editingPrice
+                    ? "Update Price"
+                    : "Save Price"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE PRICE CONFIRMATION MODAL */}
+      {showDeletePriceModal && deletingPrice && (
+        <div className="product-delete-overlay">
+          <div
+            className="product-delete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-price-title"
+          >
+            <div className="product-delete-icon">!</div>
+
+            <h2 id="delete-price-title">Delete Price?</h2>
+
+            <p className="product-delete-description">
+              Are you sure you want to mark this price record as inactive?
+            </p>
+
+            <div className="product-delete-details">
+              <div>
+                <span>Effective Date</span>
+                <strong>
+                  {formatEffectiveDate(deletingPrice.effdate)}
+                </strong>
+              </div>
+
+              <div>
+                <span>Unit Price</span>
+                <strong>
+                  {Number(deletingPrice.unitprice).toFixed(2)}
+                </strong>
+              </div>
+            </div>
+
+            {deletePriceError && (
+              <div className="user-alert user-alert-error">
+                {deletePriceError}
+              </div>
+            )}
+
+            <div className="product-delete-actions">
+              <button
+                type="button"
+                className="product-delete-cancel"
+                onClick={handleCloseDeletePriceModal}
+                disabled={deletingPriceLoading}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="product-delete-confirm"
+                onClick={handleConfirmDeletePrice}
+                disabled={deletingPriceLoading}
+              >
+                {deletingPriceLoading
+                  ? "Deleting..."
+                  : "Yes, Delete Price"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DELETE PRODUCT CONFIRMATION MODAL */}
       {showDeleteModal && deletingProduct && (
         <div className="product-delete-overlay">
@@ -637,13 +1237,9 @@ function ProductList() {
             aria-modal="true"
             aria-labelledby="delete-product-title"
           >
-            <div className="product-delete-icon">
-              !
-            </div>
+            <div className="product-delete-icon">!</div>
 
-            <h2 id="delete-product-title">
-              Delete Product?
-            </h2>
+            <h2 id="delete-product-title">Delete Product?</h2>
 
             <p className="product-delete-description">
               Are you sure you want to move this product to deleted records?
@@ -657,9 +1253,7 @@ function ProductList() {
 
               <div>
                 <span>Product Name</span>
-                <strong>
-                  {deletingProduct.description || "—"}
-                </strong>
+                <strong>{deletingProduct.description || "—"}</strong>
               </div>
             </div>
 
@@ -706,13 +1300,9 @@ function ProductList() {
             aria-modal="true"
             aria-labelledby="restore-product-title"
           >
-            <div className="product-restore-icon">
-              ✓
-            </div>
+            <div className="product-restore-icon">✓</div>
 
-            <h2 id="restore-product-title">
-              Restore Product?
-            </h2>
+            <h2 id="restore-product-title">Restore Product?</h2>
 
             <p className="product-restore-description">
               Are you sure you want to restore this product to the active product list?
@@ -726,9 +1316,7 @@ function ProductList() {
 
               <div>
                 <span>Product Name</span>
-                <strong>
-                  {restoringProduct.description || "—"}
-                </strong>
+                <strong>{restoringProduct.description || "—"}</strong>
               </div>
             </div>
 

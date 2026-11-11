@@ -2526,7 +2526,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  z-index: 2000;
+  z-index: 2200;
 }
 
 /* =========================================
@@ -2896,3 +2896,527 @@ body {
 }
 
 
+/* =========================================
+   PRICE HISTORY - S2-DEV-07
+========================================= */
+
+/* Price History button */
+
+.price-history-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.price-history-button:hover {
+  background: #dbeafe;
+}
+
+.price-history-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Modal overlay */
+
+.price-history-overlay,
+.price-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+/* Main Price History modal */
+
+.price-history-modal {
+  width: min(1100px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.2);
+}
+
+/* Modal header */
+
+.price-history-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 36px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.price-history-modal-header > div {
+  min-width: 0;
+}
+
+.price-history-modal-header h2 {
+  margin: 0 0 8px;
+  color: #172b4d;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.price-history-modal-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.price-history-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  font-size: 27px;
+  cursor: pointer;
+}
+
+.price-history-close:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+/* Toolbar */
+
+.price-history-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 36px;
+  box-sizing: border-box;
+}
+
+.price-history-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Filter buttons */
+
+.price-filter-button {
+  min-width: 68px;
+  padding: 10px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.price-filter-button:hover {
+  background: #f1f5f9;
+}
+
+.price-filter-button.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+/* Add Price button */
+
+.price-history-add-button {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 7px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.price-history-add-button:hover {
+  background: #1d4ed8;
+}
+
+.price-history-add-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Price History table container */
+
+.price-history-table-wrapper {
+  flex: 1;
+  min-height: 150px;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 0 32px 28px;
+  box-sizing: border-box;
+}
+
+.price-history-modal > .customer-modal-actions {
+  flex-shrink: 0;
+  margin: 0 36px;
+  padding: 20px 0 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Table */
+
+.price-history-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  table-layout: auto;
+  text-align: left;
+}
+
+.price-history-table thead {
+  background: #f8fafc;
+}
+
+.price-history-table th {
+  padding: 16px 20px;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.price-history-table td {
+  padding: 22px 20px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.7;
+  border-bottom: 1px solid #edf1f5;
+  vertical-align: middle;
+}
+.price-history-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Audit and action columns */
+
+.price-history-table td:nth-child(4),
+.price-history-table td:nth-child(5) {
+  min-width: 150px;
+}
+
+.price-history-table td:last-child {
+  min-width: 135px;
+  white-space: nowrap;
+}
+
+.price-history-table td button {
+  margin: 3px;
+}
+
+/* Price status */
+
+.price-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.price-status.active {
+  background: #e8f8ee;
+  color: #15803d;
+}
+
+.price-status.inactive {
+  background: #feecec;
+  color: #dc2626;
+}
+
+/* Audit stamp */
+
+.price-history-stamp {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.price-history-stamp strong {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Row action buttons */
+
+.price-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price-history-edit-button,
+.price-history-delete-button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.price-history-edit-button {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.price-history-edit-button:hover {
+  background: #dbeafe;
+}
+
+.price-history-delete-button {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #dc2626;
+}
+
+.price-history-delete-button:hover {
+  background: #fee2e2;
+}
+
+.price-history-edit-button:disabled,
+.price-history-delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Empty state */
+
+.price-history-empty {
+  padding: 36px 20px;
+  color: #64748b;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Price form modal */
+
+.price-form-overlay {
+  z-index: 2200;
+}
+
+.price-form-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.2);
+}
+
+.price-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.price-form-header h2 {
+  margin: 0;
+  color: #172b4d;
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+.price-form-close {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 27px;
+  cursor: pointer;
+}
+
+/* Price form fields */
+
+.price-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.price-form-group label {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.price-form-group input {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 14px;
+}
+
+.price-form-group input:focus {
+  outline: none;
+  border-color: #6599eb;
+  box-shadow: 0 0 0 3px rgba(101, 153, 235, 0.15);
+}
+
+.price-form-group input:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* Price form actions */
+
+.price-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.price-form-save-button,
+.price-form-cancel-button {
+  padding: 11px 20px;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.price-form-save-button {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.price-form-save-button:hover {
+  background: #1d4ed8;
+}
+
+.price-form-cancel-button {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.price-form-cancel-button:hover {
+  background: #cbd5e1;
+}
+
+.price-form-save-button:disabled,
+.price-form-cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive layout */
+
+@media (max-width: 700px) {
+  .price-history-overlay,
+  .price-form-overlay {
+    padding: 12px;
+  }
+
+  .price-history-modal {
+    max-height: 94vh;
+  }
+
+  .price-history-modal-header {
+    padding: 20px;
+  }
+
+  .price-history-modal-header h2 {
+    font-size: 20px;
+  }
+
+  .price-history-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px 20px;
+  }
+
+  .price-history-filters {
+    width: 100%;
+  }
+
+  .price-history-add-button {
+    width: 100%;
+  }
+
+  .price-history-table-wrapper {
+    padding: 0 20px 20px;
+  }
+
+  .price-form-modal {
+    padding: 22px;
+  }
+
+  .price-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .price-form-actions button {
+    width: 100%;
+  }
+}
