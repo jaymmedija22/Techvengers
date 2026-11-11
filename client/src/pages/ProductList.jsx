@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 const API_URL = "http://localhost:3000/api/products";
@@ -14,6 +14,7 @@ function ProductList() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [unit, setUnit] = useState("");
+  const [showDeleted, setShowDeleted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -25,21 +26,34 @@ function ProductList() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Fetch products
-  const fetchProducts = async () => {
+  // Product delete confirmation states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  // Product restore confirmation states
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoringProduct, setRestoringProduct] = useState(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
+
+  // Fetch active or deleted products
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const params = new URLSearchParams();
+      const endpoint = showDeleted
+        ? `${API_URL}/deleted`
+        : `${API_URL}?${new URLSearchParams({
+            ...(search.trim() ? { q: search.trim() } : {}),
+            ...(unit ? { unit } : {}),
+          }).toString()}`;
 
-      if (search.trim()) params.set("q", search.trim());
-      if (unit) params.set("unit", unit);
-
-      const response = await fetch(
-        `${API_URL}?${params.toString()}`,
-        { credentials: "include" }
-      );
+      const response = await fetch(endpoint, {
+        credentials: "include",
+      });
 
       const data = await response.json();
 
@@ -47,18 +61,37 @@ function ProductList() {
         throw new Error(data.message || "Unable to retrieve products.");
       }
 
-      setProducts(data.products || []);
+      let result = data.products || [];
+
+      // Apply search and unit filtering to deleted products
+      if (showDeleted) {
+        if (search.trim()) {
+          const term = search.trim().toLowerCase();
+
+          result = result.filter(
+            (product) =>
+              product.prodcode.toLowerCase().includes(term) ||
+              (product.description || "").toLowerCase().includes(term)
+          );
+        }
+
+        if (unit) {
+          result = result.filter((product) => product.unit === unit);
+        }
+      }
+
+      setProducts(result);
     } catch (err) {
       setProducts([]);
       setError(err.message || "Unable to retrieve products.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, unit, showDeleted]);
 
   useEffect(() => {
     fetchProducts();
-  }, [search, unit]);
+  }, [fetchProducts]);
 
   // Open form for creating a product
   const handleAddProduct = () => {
@@ -82,7 +115,7 @@ function ProductList() {
     setShowModal(true);
   };
 
-  // Close modal
+  // Close create/edit modal
   const handleCloseModal = () => {
     if (saving) return;
 
@@ -168,6 +201,119 @@ function ProductList() {
     }
   };
 
+  // Open delete confirmation modal
+  const handleDeleteProduct = (product) => {
+    setDeletingProduct(product);
+    setDeleteError("");
+    setShowDeleteModal(true);
+  };
+
+  // Close delete confirmation modal
+  const handleCloseDeleteModal = () => {
+    if (deleting) return;
+
+    setShowDeleteModal(false);
+    setDeletingProduct(null);
+    setDeleteError("");
+  };
+
+  // Confirm soft delete
+  const handleConfirmDelete = async () => {
+    if (!deletingProduct) return;
+
+    try {
+      setDeleting(true);
+      setDeleteError("");
+      setError("");
+      setSuccess("");
+
+      const response = await fetch(
+        `${API_URL}/${encodeURIComponent(deletingProduct.prodcode)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to delete product.");
+      }
+
+      setShowDeleteModal(false);
+      setDeletingProduct(null);
+      setSuccess(data.message || "Product deleted successfully.");
+
+      await fetchProducts();
+    } catch (err) {
+      setDeleteError(err.message || "Unable to delete product.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Open restore confirmation modal
+  const handleRestoreProduct = (product) => {
+    setRestoringProduct(product);
+    setRestoreError("");
+    setShowRestoreModal(true);
+  };
+
+  // Close restore confirmation modal
+  const handleCloseRestoreModal = () => {
+    if (restoring) return;
+
+    setShowRestoreModal(false);
+    setRestoringProduct(null);
+    setRestoreError("");
+  };
+
+  // Confirm product restoration
+  const handleConfirmRestore = async () => {
+    if (!restoringProduct) return;
+
+    try {
+      setRestoring(true);
+      setRestoreError("");
+      setError("");
+      setSuccess("");
+
+      const response = await fetch(
+        `${API_URL}/${encodeURIComponent(restoringProduct.prodcode)}/restore`,
+        {
+          method: "PATCH",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to restore product.");
+      }
+
+      setShowRestoreModal(false);
+      setRestoringProduct(null);
+      setSuccess(data.message || "Product restored successfully.");
+
+      await fetchProducts();
+    } catch (err) {
+      setRestoreError(err.message || "Unable to restore product.");
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  // Switch between active and deleted products
+  const handleViewChange = (deleted) => {
+    setShowDeleted(deleted);
+    setSearch("");
+    setUnit("");
+    setError("");
+    setSuccess("");
+  };
+
   return (
     <div className="dashboard-layout">
       <main className="dashboard-main">
@@ -177,18 +323,22 @@ function ProductList() {
           <div className="user-page-heading">
             <div>
               <h1>Product Management</h1>
-              <p>View, search, create, and edit product records.</p>
+              <p>
+                View, search, create, edit, delete, and restore products.
+              </p>
             </div>
 
             <div className="customer-heading-actions">
-              <button
-                type="button"
-                className="user-add-button"
-                onClick={handleAddProduct}
-              >
-                <span>+</span>
-                Add Product
-              </button>
+              {!showDeleted && (
+                <button
+                  type="button"
+                  className="user-add-button"
+                  onClick={handleAddProduct}
+                >
+                  <span>+</span>
+                  Add Product
+                </button>
+              )}
 
               <Link to="/home" className="user-add-button">
                 Back to Dashboard
@@ -220,13 +370,40 @@ function ProductList() {
           <section className="user-table-card">
             <div className="user-table-heading">
               <div>
-                <h2>Product List</h2>
-                <p>Active product records</p>
+                <h2>
+                  {showDeleted ? "Deleted Products" : "Product List"}
+                </h2>
+                <p>
+                  {showDeleted
+                    ? "Products that have been soft-deleted"
+                    : "Active product records"}
+                </p>
               </div>
 
               <span className="user-count">
                 {products.length} products
               </span>
+            </div>
+
+            {/* ACTIVE / DELETED VIEW BUTTONS */}
+            <div className="customer-heading-actions">
+              <button
+                type="button"
+                className="user-add-button"
+                onClick={() => handleViewChange(false)}
+                disabled={!showDeleted}
+              >
+                Active Products
+              </button>
+
+              <button
+                type="button"
+                className="user-add-button"
+                onClick={() => handleViewChange(true)}
+                disabled={showDeleted}
+              >
+                Deleted Products
+              </button>
             </div>
 
             {/* SEARCH AND FILTER */}
@@ -278,7 +455,9 @@ function ProductList() {
                   ) : products.length === 0 ? (
                     <tr>
                       <td colSpan="4" className="user-empty-state">
-                        No products found.
+                        {showDeleted
+                          ? "No deleted products found."
+                          : "No products found."}
                       </td>
                     </tr>
                   ) : (
@@ -286,9 +465,7 @@ function ProductList() {
                       <tr key={product.prodcode}>
                         <td>{product.prodcode}</td>
 
-                        <td>
-                          {product.description || "—"}
-                        </td>
+                        <td>{product.description || "—"}</td>
 
                         <td>
                           <span className="user-role-badge user">
@@ -298,13 +475,39 @@ function ProductList() {
 
                         <td>
                           <div className="user-action-buttons">
-                            <button
-                              type="button"
-                              className="customer-edit-button"
-                              onClick={() => handleEditProduct(product)}
-                            >
-                              Edit
-                            </button>
+                            {showDeleted ? (
+                              <button
+                                type="button"
+                                className="product-restore-button"
+                                onClick={() =>
+                                  handleRestoreProduct(product)
+                                }
+                              >
+                                Restore
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className="customer-edit-button"
+                                  onClick={() =>
+                                    handleEditProduct(product)
+                                  }
+                                >
+                                  Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="product-delete-button"
+                                  onClick={() =>
+                                    handleDeleteProduct(product)
+                                  }
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -315,7 +518,8 @@ function ProductList() {
             </div>
 
             <div className="user-table-footer">
-              Showing {products.length} active product(s)
+              Showing {products.length}{" "}
+              {showDeleted ? "deleted" : "active"} product(s)
             </div>
           </section>
         </div>
@@ -348,11 +552,8 @@ function ProductList() {
             )}
 
             <form onSubmit={handleSubmit}>
-              {/* PRODUCT CODE */}
               <div className="customer-form-group">
-                <label htmlFor="prodcode">
-                  Product Code
-                </label>
+                <label htmlFor="prodcode">Product Code</label>
 
                 <input
                   id="prodcode"
@@ -367,11 +568,8 @@ function ProductList() {
                 />
               </div>
 
-              {/* DESCRIPTION */}
               <div className="customer-form-group">
-                <label htmlFor="description">
-                  Description
-                </label>
+                <label htmlFor="description">Description</label>
 
                 <input
                   id="description"
@@ -384,11 +582,8 @@ function ProductList() {
                 />
               </div>
 
-              {/* UNIT */}
               <div className="customer-form-group">
-                <label htmlFor="unit">
-                  Unit
-                </label>
+                <label htmlFor="unit">Unit</label>
 
                 <select
                   id="unit"
@@ -406,7 +601,6 @@ function ProductList() {
                 </select>
               </div>
 
-              {/* FORM ACTIONS */}
               <div className="customer-modal-actions">
                 <button
                   type="button"
@@ -430,6 +624,144 @@ function ProductList() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE PRODUCT CONFIRMATION MODAL */}
+      {showDeleteModal && deletingProduct && (
+        <div className="product-delete-overlay">
+          <div
+            className="product-delete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-product-title"
+          >
+            <div className="product-delete-icon">
+              !
+            </div>
+
+            <h2 id="delete-product-title">
+              Delete Product?
+            </h2>
+
+            <p className="product-delete-description">
+              Are you sure you want to move this product to deleted records?
+            </p>
+
+            <div className="product-delete-details">
+              <div>
+                <span>Product Code</span>
+                <strong>{deletingProduct.prodcode}</strong>
+              </div>
+
+              <div>
+                <span>Product Name</span>
+                <strong>
+                  {deletingProduct.description || "—"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="product-delete-warning">
+              This product will no longer appear in the active product list.
+              You can restore the record later.
+            </div>
+
+            {deleteError && (
+              <div className="user-alert user-alert-error">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="product-delete-actions">
+              <button
+                type="button"
+                className="product-delete-cancel"
+                onClick={handleCloseDeleteModal}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="product-delete-confirm"
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Yes, Delete Product"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESTORE PRODUCT CONFIRMATION MODAL */}
+      {showRestoreModal && restoringProduct && (
+        <div className="product-restore-overlay">
+          <div
+            className="product-restore-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="restore-product-title"
+          >
+            <div className="product-restore-icon">
+              ✓
+            </div>
+
+            <h2 id="restore-product-title">
+              Restore Product?
+            </h2>
+
+            <p className="product-restore-description">
+              Are you sure you want to restore this product to the active product list?
+            </p>
+
+            <div className="product-restore-details">
+              <div>
+                <span>Product Code</span>
+                <strong>{restoringProduct.prodcode}</strong>
+              </div>
+
+              <div>
+                <span>Product Name</span>
+                <strong>
+                  {restoringProduct.description || "—"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="product-restore-warning">
+              This product will become available again in the active product list.
+              You can manage and edit the record after restoring it.
+            </div>
+
+            {restoreError && (
+              <div className="user-alert user-alert-error">
+                {restoreError}
+              </div>
+            )}
+
+            <div className="product-restore-actions">
+              <button
+                type="button"
+                className="product-restore-cancel"
+                onClick={handleCloseRestoreModal}
+                disabled={restoring}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="product-restore-confirm"
+                onClick={handleConfirmRestore}
+                disabled={restoring}
+              >
+                {restoring ? "Restoring..." : "Yes, Restore Product"}
+              </button>
+            </div>
           </div>
         </div>
       )}

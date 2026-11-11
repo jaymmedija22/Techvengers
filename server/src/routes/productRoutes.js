@@ -206,6 +206,30 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /api/products/deleted - Retrieve deleted products
+router.get("/deleted", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT prodcode, description, unit
+       FROM product
+       WHERE is_deleted = TRUE
+       ORDER BY prodcode ASC`
+    );
+
+    return res.json({
+      status: "success",
+      products: result.rows,
+    });
+  } catch (error) {
+    console.error("Deleted product list error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to retrieve deleted products.",
+    });
+  }
+});
+
 // POST /api/products - Create product
 router.post("/", async (req, res) => {
   try {
@@ -303,6 +327,86 @@ router.put("/:prodcode", async (req, res) => {
     return res.status(500).json({
       status: "error",
       message: "Unable to update product.",
+    });
+  }
+});
+
+// DELETE /api/products/:prodcode - Soft-delete product
+router.delete("/:prodcode", async (req, res) => {
+  try {
+    if (!(await requireProductPermission("products.delete", req, res))) {
+      return;
+    }
+
+    const { prodcode } = req.params;
+
+    const result = await pool.query(
+      `UPDATE product
+       SET is_deleted = TRUE
+       WHERE prodcode = $1
+         AND is_deleted = FALSE
+       RETURNING prodcode, description, unit`,
+      [prodcode]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Active product not found.",
+      });
+    }
+
+    return res.json({
+      status: "success",
+      message: "Product deleted successfully.",
+      product: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Product deletion error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to delete product.",
+    });
+  }
+});
+
+// PATCH /api/products/:prodcode/restore - Restore deleted product
+router.patch("/:prodcode/restore", async (req, res) => {
+  try {
+    if (!(await requireProductPermission("products.restore", req, res))) {
+      return;
+    }
+
+    const { prodcode } = req.params;
+
+    const result = await pool.query(
+      `UPDATE product
+       SET is_deleted = FALSE
+       WHERE prodcode = $1
+         AND is_deleted = TRUE
+       RETURNING prodcode, description, unit`,
+      [prodcode]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Deleted product not found.",
+      });
+    }
+
+    return res.json({
+      status: "success",
+      message: "Product restored successfully.",
+      product: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Product restoration error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to restore product.",
     });
   }
 });
