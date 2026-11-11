@@ -585,22 +585,38 @@ router.get("/", async (req, res) => {
     if (search) {
       values.push(`%${search}%`);
       conditions.push(
-        `(prodcode ILIKE $${values.length}
-          OR COALESCE(description, '') ILIKE $${values.length})`
+        `(p.prodcode ILIKE $${values.length}
+  OR COALESCE(p.description, '') ILIKE $${values.length})`
       );
     }
 
     if (unit) {
       values.push(unit);
-      conditions.push(`unit = $${values.length}`);
+      conditions.push(`p.unit = $${values.length}`);
     }
 
     const query = `
-      SELECT prodcode, description, unit
-      FROM vw_active_products
-      ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
-      ORDER BY prodcode ASC
-    `;
+  SELECT
+    p.prodcode,
+    p.description,
+    p.unit,
+    current_price.unitprice AS current_price,
+    current_price.effdate AS current_price_effdate
+  FROM vw_active_products p
+  LEFT JOIN LATERAL (
+    SELECT
+      ph.unitprice,
+      ph.effdate
+    FROM public.pricehist ph
+    WHERE ph.prodcode = p.prodcode
+      AND ph.is_deleted = FALSE
+      AND ph.effdate <= CURRENT_DATE
+    ORDER BY ph.effdate DESC
+    LIMIT 1
+  ) current_price ON TRUE
+  ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
+  ORDER BY p.prodcode ASC
+`;
 
     const result = await pool.query(query, values);
 

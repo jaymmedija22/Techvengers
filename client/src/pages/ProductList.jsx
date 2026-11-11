@@ -1,6 +1,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../AuthContext";
 
 const API_URL = "http://localhost:3000/api/products";
 
@@ -16,6 +17,32 @@ const INITIAL_PRICE_FORM = {
 };
 
 function ProductList() {
+  const { user } = useAuth();
+
+  // Check the user's role and assigned permissions.
+  const isSuperadmin = user?.role_name === "Superadmin";
+
+  const canAddProduct =
+    isSuperadmin || user?.permissions?.includes("products.add");
+
+  const canEditProduct =
+    isSuperadmin || user?.permissions?.includes("products.edit");
+
+  const canDeleteProduct =
+    isSuperadmin || user?.permissions?.includes("products.delete");
+
+  const canRestoreProduct =
+    isSuperadmin || user?.permissions?.includes("products.restore");
+
+  const canAddPrice =
+    isSuperadmin || user?.permissions?.includes("prices.add");
+
+  const canEditPrice =
+    isSuperadmin || user?.permissions?.includes("prices.edit");
+
+  const canDeletePrice =
+    isSuperadmin || user?.permissions?.includes("prices.delete");
+
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [unit, setUnit] = useState("");
@@ -158,6 +185,8 @@ function ProductList() {
 
   // Open form for creating a product
   const handleAddProduct = () => {
+    if (!canAddProduct) return;
+
     setEditingProduct(null);
     setFormData(INITIAL_FORM);
     setFormError("");
@@ -166,6 +195,8 @@ function ProductList() {
 
   // Open form for editing a product
   const handleEditProduct = (product) => {
+    if (!canEditProduct) return;
+
     setEditingProduct(product);
 
     setFormData({
@@ -204,6 +235,13 @@ function ProductList() {
     setFormError("");
     setSuccess("");
 
+    const isEditing = Boolean(editingProduct);
+
+    if (isEditing ? !canEditProduct : !canAddProduct) {
+      setFormError("You do not have permission to perform this action.");
+      return;
+    }
+
     const prodcode = formData.prodcode.trim();
     const description = formData.description.trim();
     const unit = formData.unit;
@@ -222,8 +260,6 @@ function ProductList() {
       setFormError("Please select a product unit.");
       return;
     }
-
-    const isEditing = Boolean(editingProduct);
 
     const endpoint = isEditing
       ? `${API_URL}/${encodeURIComponent(editingProduct.prodcode)}`
@@ -266,6 +302,8 @@ function ProductList() {
 
   // Open delete product confirmation
   const handleDeleteProduct = (product) => {
+    if (!canDeleteProduct) return;
+
     setDeletingProduct(product);
     setDeleteError("");
     setShowDeleteModal(true);
@@ -282,7 +320,7 @@ function ProductList() {
 
   // Confirm product deletion
   const handleConfirmDelete = async () => {
-    if (!deletingProduct) return;
+    if (!canDeleteProduct || !deletingProduct) return;
 
     try {
       setDeleting(true);
@@ -318,6 +356,8 @@ function ProductList() {
 
   // Open restore product confirmation
   const handleRestoreProduct = (product) => {
+    if (!canRestoreProduct) return;
+
     setRestoringProduct(product);
     setRestoreError("");
     setShowRestoreModal(true);
@@ -334,7 +374,7 @@ function ProductList() {
 
   // Confirm product restoration
   const handleConfirmRestore = async () => {
-    if (!restoringProduct) return;
+    if (!canRestoreProduct || !restoringProduct) return;
 
     try {
       setRestoring(true);
@@ -403,6 +443,8 @@ function ProductList() {
 
   // Open add price form
   const handleAddPrice = () => {
+    if (!canAddPrice) return;
+
     setEditingPrice(null);
     setPriceFormData(INITIAL_PRICE_FORM);
     setPriceFormError("");
@@ -411,6 +453,8 @@ function ProductList() {
 
   // Open edit price form
   const handleEditPrice = (price) => {
+    if (!canEditPrice) return;
+
     setEditingPrice(price);
 
     setPriceFormData({
@@ -450,6 +494,13 @@ function ProductList() {
 
     if (!selectedPriceProduct) return;
 
+    const isEditing = Boolean(editingPrice);
+
+    if (isEditing ? !canEditPrice : !canAddPrice) {
+      setPriceFormError("You do not have permission to perform this action.");
+      return;
+    }
+
     const effdate = priceFormData.effdate;
     const unitprice = priceFormData.unitprice.trim();
 
@@ -469,8 +520,6 @@ function ProductList() {
       setPriceFormError("Unit price must be greater than zero.");
       return;
     }
-
-    const isEditing = Boolean(editingPrice);
 
     const endpoint = isEditing
       ? `${API_URL}/${encodeURIComponent(selectedPriceProduct.prodcode)}/prices/${encodeURIComponent(editingPrice.effdate.slice(0, 10))}`
@@ -511,12 +560,13 @@ function ProductList() {
   };
 
   // Open delete price confirmation
-const handleDeletePrice = (price) => {
+  const handleDeletePrice = (price) => {
+    if (!canDeletePrice) return;
 
-  setDeletingPrice(price);
-  setDeletePriceError("");
-  setShowDeletePriceModal(true);
-};
+    setDeletingPrice(price);
+    setDeletePriceError("");
+    setShowDeletePriceModal(true);
+  };
 
   // Close delete price confirmation
   const handleCloseDeletePriceModal = () => {
@@ -529,7 +579,7 @@ const handleDeletePrice = (price) => {
 
   // Confirm price deletion
   const handleConfirmDeletePrice = async () => {
-    if (!selectedPriceProduct || !deletingPrice) return;
+    if (!canDeletePrice || !selectedPriceProduct || !deletingPrice) return;
 
     try {
       setDeletingPriceLoading(true);
@@ -608,7 +658,7 @@ const handleDeletePrice = (price) => {
             </div>
 
             <div className="customer-heading-actions">
-              {!showDeleted && (
+              {!showDeleted && canAddProduct && (
                 <button
                   type="button"
                   className="price-history-add-button"
@@ -720,6 +770,7 @@ const handleDeletePrice = (price) => {
                     <th>PRODUCT CODE</th>
                     <th>DESCRIPTION</th>
                     <th>UNIT</th>
+                    {!showDeleted && <th>CURRENT PRICE</th>}
                     <th>ACTIONS</th>
                   </tr>
                 </thead>
@@ -727,13 +778,13 @@ const handleDeletePrice = (price) => {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="4" className="user-empty-state">
+                      <td colSpan={showDeleted ? 4 : 5} className="user-empty-state">
                         Loading products...
                       </td>
                     </tr>
                   ) : products.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="user-empty-state">
+                      <td colSpan={showDeleted ? 4 : 5} className="user-empty-state">
                         {showDeleted
                           ? "No deleted products found."
                           : "No products found."}
@@ -751,18 +802,31 @@ const handleDeletePrice = (price) => {
                           </span>
                         </td>
 
+                        {!showDeleted && (
+                          <td>
+                            {product.current_price == null
+                              ? "No price set"
+                              : `₱${Number(product.current_price).toLocaleString("en-PH", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}`}
+                          </td>
+                        )}
+
                         <td>
                           <div className="user-action-buttons">
                             {showDeleted ? (
-                              <button
-                                type="button"
-                                className="product-restore-button"
-                                onClick={() =>
-                                  handleRestoreProduct(product)
-                                }
-                              >
-                                Restore
-                              </button>
+                              canRestoreProduct && (
+                                <button
+                                  type="button"
+                                  className="product-restore-button"
+                                  onClick={() =>
+                                    handleRestoreProduct(product)
+                                  }
+                                >
+                                  Restore
+                                </button>
+                              )
                             ) : (
                               <>
                                 <button
@@ -775,25 +839,29 @@ const handleDeletePrice = (price) => {
                                   Price History
                                 </button>
 
-                                <button
-                                  type="button"
-                                  className="price-history-edit-button"
-                                  onClick={() =>
-                                    handleEditProduct(product)
-                                  }
-                                >
-                                  Edit
-                                </button>
+                                {canEditProduct && (
+                                  <button
+                                    type="button"
+                                    className="price-history-edit-button"
+                                    onClick={() =>
+                                      handleEditProduct(product)
+                                    }
+                                  >
+                                    Edit
+                                  </button>
+                                )}
 
-                                <button
-                                  type="button"
-                                  className="price-history-delete-button"
-                                  onClick={() =>
-                                    handleDeleteProduct(product)
-                                  }
-                                >
-                                  Delete
-                                </button>
+                                {canDeleteProduct && (
+                                  <button
+                                    type="button"
+                                    className="price-history-delete-button"
+                                    onClick={() =>
+                                      handleDeleteProduct(product)
+                                    }
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
@@ -898,7 +966,10 @@ const handleDeletePrice = (price) => {
                 <button
                   type="submit"
                   className="customer-save-button"
-                  disabled={saving}
+                  disabled={
+                    saving ||
+                    (editingProduct ? !canEditProduct : !canAddProduct)
+                  }
                 >
                   {saving
                     ? "Saving..."
@@ -955,13 +1026,15 @@ const handleDeletePrice = (price) => {
                 ))}
               </div>
 
-              <button
-                type="button"
-                className="price-history-add-button"
-                onClick={handleAddPrice}
-              >
-                + Add Price
-              </button>
+              {canAddPrice && (
+                <button
+                  type="button"
+                  className="price-history-add-button"
+                  onClick={handleAddPrice}
+                >
+                  + Add Price
+                </button>
+              )}
             </div>
 
             {priceHistoryError && (
@@ -970,7 +1043,7 @@ const handleDeletePrice = (price) => {
               </div>
             )}
 
-           <div className="price-history-table-wrapper">
+            <div className="price-history-table-wrapper">
               <table className="user-management-table price-history-table">
                 <thead>
                   <tr>
@@ -1044,21 +1117,25 @@ const handleDeletePrice = (price) => {
                           <div className="user-action-buttons">
                             {!price.is_deleted && (
                               <>
-                                <button
-                                  type="button"
-                                  className="price-history-edit-button"
-                                  onClick={() => handleEditPrice(price)}
-                                >
-                                  Edit
-                                </button>
+                                {canEditPrice && (
+                                  <button
+                                    type="button"
+                                    className="price-history-edit-button"
+                                    onClick={() => handleEditPrice(price)}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
 
-                                <button
-                                  type="button"
-                                  className="price-history-delete-button"
-                                  onClick={() => handleDeletePrice(price)}
-                                >
-                                  Delete
-                                </button>
+                                {canDeletePrice && (
+                                  <button
+                                    type="button"
+                                    className="price-history-delete-button"
+                                    onClick={() => handleDeletePrice(price)}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
@@ -1150,7 +1227,10 @@ const handleDeletePrice = (price) => {
                 <button
                   type="submit"
                   className="customer-save-button"
-                  disabled={savingPrice}
+                  disabled={
+                    savingPrice ||
+                    (editingPrice ? !canEditPrice : !canAddPrice)
+                  }
                 >
                   {savingPrice
                     ? "Saving..."
@@ -1217,7 +1297,7 @@ const handleDeletePrice = (price) => {
                 type="button"
                 className="product-delete-confirm"
                 onClick={handleConfirmDeletePrice}
-                disabled={deletingPriceLoading}
+                disabled={deletingPriceLoading || !canDeletePrice}
               >
                 {deletingPriceLoading
                   ? "Deleting..."
@@ -1282,7 +1362,7 @@ const handleDeletePrice = (price) => {
                 type="button"
                 className="product-delete-confirm"
                 onClick={handleConfirmDelete}
-                disabled={deleting}
+                disabled={deleting || !canDeleteProduct}
               >
                 {deleting ? "Deleting..." : "Yes, Delete Product"}
               </button>
@@ -1345,7 +1425,7 @@ const handleDeletePrice = (price) => {
                 type="button"
                 className="product-restore-confirm"
                 onClick={handleConfirmRestore}
-                disabled={restoring}
+                disabled={restoring || !canRestoreProduct}
               >
                 {restoring ? "Restoring..." : "Yes, Restore Product"}
               </button>
