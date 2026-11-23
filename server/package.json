@@ -8,7 +8,8 @@
     "migrate": "node scripts/migrate.js",
     "create-setup-token": "node scripts/create-account-setup-token.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "migrate-auth-users": "node scripts/migrate-existing-users-to-supabase.js"
+    "migrate-auth-users": "node scripts/migrate-existing-users-to-supabase.js",
+    "seed:hr-demo": "node db/seeds/runHrDemoData.js"
   },
   "keywords": [],
   "author": "",
