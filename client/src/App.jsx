@@ -12,6 +12,7 @@
   import ProductList from './pages/ProductList'
   import JobManagement from './pages/JobManagement'
   import DepartmentManagement from './pages/DepartmentManagement'
+  import EmployeeManagement from './pages/EmployeeManagement'
 
   function App() {
     return (
@@ -29,6 +30,7 @@
             <Route path="/products" element={<ProductList />} />
             <Route path="/jobs" element={<JobManagement />} />
             <Route path="/departments" element={<DepartmentManagement />} />
+            <Route path="/employees" element={<EmployeeManagement />} />
             <Route path="/set-password" element={<SetPassword />} />
           </Routes>
         </AuthProvider>

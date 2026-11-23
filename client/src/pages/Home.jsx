@@ -33,6 +33,9 @@ function Home() {
   const canViewDepartments =
     user.role_name === 'Superadmin' ||
     user.permissions?.includes('departments.view')
+  const canViewEmployees =
+    user.role_name === 'Superadmin' ||
+    user.permissions?.includes('employees.view')
 
   const modules = [
     { name: 'Customer', icon: '👥', target: '/customers' },
@@ -40,6 +43,9 @@ function Home() {
     ...(canViewJobs ? [{ name: 'Jobs', icon: '💼', target: '/jobs' }] : []),
     ...(canViewDepartments
       ? [{ name: 'Departments', icon: '🏢', target: '/departments' }]
+      : []),
+    ...(canViewEmployees
+      ? [{ name: 'Employees', icon: '👤', target: '/employees' }]
       : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales', icon: '📈', target: '#sales' },
@@ -54,6 +60,9 @@ function Home() {
       : []),
     ...(canViewDepartments
       ? [{ name: 'Manage Departments', icon: '🏢', target: '/departments' }]
+      : []),
+    ...(canViewEmployees
+      ? [{ name: 'Manage Employees', icon: '👤', target: '/employees' }]
       : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales Pipeline', icon: '📈', target: '#sales' },
