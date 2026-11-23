@@ -2322,6 +2322,27 @@ body {
   cursor: not-allowed;
 }
 
+.department-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.department-delete-warning {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.department-row-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.job-row-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 
 /* =====================================
    CUSTOMER DELETE / RESTORE CONFIRMATION

@@ -30,11 +30,17 @@ function Home() {
   const canViewJobs =
     user.role_name === 'Superadmin' ||
     user.permissions?.includes('jobs.view')
+  const canViewDepartments =
+    user.role_name === 'Superadmin' ||
+    user.permissions?.includes('departments.view')
 
   const modules = [
     { name: 'Customer', icon: '👥', target: '/customers' },
     { name: 'Products', icon: '📦', target: '/products' },
     ...(canViewJobs ? [{ name: 'Jobs', icon: '💼', target: '/jobs' }] : []),
+    ...(canViewDepartments
+      ? [{ name: 'Departments', icon: '🏢', target: '/departments' }]
+      : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales', icon: '📈', target: '#sales' },
     { name: 'Reports', icon: '📊', target: '#reports' },
@@ -46,11 +52,14 @@ function Home() {
     ...(canViewJobs
       ? [{ name: 'Manage Jobs', icon: '💼', target: '/jobs' }]
       : []),
+    ...(canViewDepartments
+      ? [{ name: 'Manage Departments', icon: '🏢', target: '/departments' }]
+      : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales Pipeline', icon: '📈', target: '#sales' },
     { name: 'Reports', icon: '📊', target: '#reports' },
     ...(isAdmin
-      ? [{ name: 'Manage Users', icon: '🔐', target: '#user-management' }]
+      ? [{ name: 'Manage Users', icon: '🔐', target: '/users' }]
       : []),
   ]
 

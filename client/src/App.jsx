@@ -11,6 +11,7 @@
   import CustomerList from './pages/CustomerList'
   import ProductList from './pages/ProductList'
   import JobManagement from './pages/JobManagement'
+  import DepartmentManagement from './pages/DepartmentManagement'
 
   function App() {
     return (
@@ -27,6 +28,7 @@
             <Route path="/customers" element={<CustomerList />} />
             <Route path="/products" element={<ProductList />} />
             <Route path="/jobs" element={<JobManagement />} />
+            <Route path="/departments" element={<DepartmentManagement />} />
             <Route path="/set-password" element={<SetPassword />} />
           </Routes>
         </AuthProvider>
