@@ -27,10 +27,14 @@ function Home() {
   const fullName = `${user.firstname} ${user.lastname}`
   const initial = user.firstname?.charAt(0).toUpperCase() || 'U'
   const isAdmin = ['Admin', 'Superadmin'].includes(user.role_name)
+  const canViewJobs =
+    user.role_name === 'Superadmin' ||
+    user.permissions?.includes('jobs.view')
 
   const modules = [
     { name: 'Customer', icon: '👥', target: '/customers' },
     { name: 'Products', icon: '📦', target: '/products' },
+    ...(canViewJobs ? [{ name: 'Jobs', icon: '💼', target: '/jobs' }] : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales', icon: '📈', target: '#sales' },
     { name: 'Reports', icon: '📊', target: '#reports' },
@@ -39,6 +43,9 @@ function Home() {
   const actions = [
     { name: 'View Customer', icon: '👥', target: '/customers' },
     { name: 'Manage Products', icon: '📦', target: '/products' },
+    ...(canViewJobs
+      ? [{ name: 'Manage Jobs', icon: '💼', target: '/jobs' }]
+      : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales Pipeline', icon: '📈', target: '#sales' },
     { name: 'Reports', icon: '📊', target: '#reports' },
@@ -95,11 +102,17 @@ function Home() {
         <header className="dashboard-topbar">
 
           <nav className="top-navigation">
-            {modules.map((module) => (
-              <a key={module.name} href={module.target}>
-                {module.name}
-              </a>
-            ))}
+            {modules.map((module) =>
+              module.target.startsWith('/') ? (
+                <Link key={module.name} to={module.target}>
+                  {module.name}
+                </Link>
+              ) : (
+                <a key={module.name} href={module.target}>
+                  {module.name}
+                </a>
+              )
+            )}
           </nav>
 
           <span className="topbar-role">
@@ -169,9 +182,9 @@ function Home() {
 
            <div className="quick-actions-grid">
   {actions.map((action) =>
-    action.name === 'Manage Users' ? (
+    action.target.startsWith('/') ? (
       <Link
-        to="/users"
+        to={action.target}
         className="quick-action-card"
         key={action.name}
       >
@@ -200,5 +213,3 @@ function Home() {
 }
 
 export default Home
-
-

@@ -2306,6 +2306,22 @@ body {
   outline-offset: 2px;
 }
 
+.job-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.job-delete-warning {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.job-row-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 
 /* =====================================
    CUSTOMER DELETE / RESTORE CONFIRMATION
