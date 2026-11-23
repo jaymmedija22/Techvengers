@@ -27,6 +27,9 @@ function Home() {
   const fullName = `${user.firstname} ${user.lastname}`
   const initial = user.firstname?.charAt(0).toUpperCase() || 'U'
   const isAdmin = ['Admin', 'Superadmin'].includes(user.role_name)
+  const canViewJobs =
+    user.role_name === 'Superadmin' ||
+    user.permissions?.includes('jobs.view')
   const canViewDepartments =
     user.role_name === 'Superadmin' ||
     user.permissions?.includes('departments.view')
@@ -34,6 +37,7 @@ function Home() {
   const modules = [
     { name: 'Customer', icon: '👥', target: '/customers' },
     { name: 'Products', icon: '📦', target: '/products' },
+    ...(canViewJobs ? [{ name: 'Jobs', icon: '💼', target: '/jobs' }] : []),
     ...(canViewDepartments
       ? [{ name: 'Departments', icon: '🏢', target: '/departments' }]
       : []),
@@ -45,6 +49,9 @@ function Home() {
   const actions = [
     { name: 'View Customer', icon: '👥', target: '/customers' },
     { name: 'Manage Products', icon: '📦', target: '/products' },
+    ...(canViewJobs
+      ? [{ name: 'Manage Jobs', icon: '💼', target: '/jobs' }]
+      : []),
     ...(canViewDepartments
       ? [{ name: 'Manage Departments', icon: '🏢', target: '/departments' }]
       : []),
