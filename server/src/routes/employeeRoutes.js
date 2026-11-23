@@ -3,65 +3,199 @@ const pool = require("../config/database");
 
 const router = express.Router();
 
-async function requireEmployeeViewAccess(req, res, next) {
-  if (!req.session?.user?.userid) {
-    return res.status(401).json({
-      status: "error",
-      message: "You must be logged in.",
-    });
-  }
-
-  try {
-    const accountResult = await pool.query(
-      `SELECT u.userid, r.role_name
-       FROM public.app_user u
-       JOIN public.role r ON r.role_id = u.role_id
-       WHERE u.userid = $1
-         AND u.isblocked = FALSE
-         AND LOWER(u.status) = 'active'`,
-      [req.session.user.userid]
-    );
-
-    const account = accountResult.rows[0];
-
-    if (!account) {
+function requireEmployeePermission(rightCode) {
+  return async function authorizeEmployeeRequest(req, res, next) {
+    if (!req.session?.user?.userid) {
       return res.status(401).json({
         status: "error",
-        message: "Your account is inactive or unavailable.",
+        message: "You must be logged in.",
       });
     }
 
-    if (account.role_name !== "Superadmin") {
-      const permissionResult = await pool.query(
-        `SELECT 1
-         FROM public.user_permission
-         WHERE user_id = $1
-           AND right_code = 'employees.view'
-           AND is_deleted = FALSE
-         LIMIT 1`,
-        [account.userid]
+    try {
+      const accountResult = await pool.query(
+        `SELECT u.userid, r.role_name
+         FROM public.app_user u
+         JOIN public.role r ON r.role_id = u.role_id
+         WHERE u.userid = $1
+           AND u.isblocked = FALSE
+           AND LOWER(u.status) = 'active'`,
+        [req.session.user.userid]
       );
 
-      if (permissionResult.rowCount === 0) {
-        return res.status(403).json({
+      const account = accountResult.rows[0];
+
+      if (!account) {
+        return res.status(401).json({
           status: "error",
-          message: "You do not have permission to view employees.",
+          message: "Your account is inactive or unavailable.",
         });
       }
+
+      if (account.role_name !== "Superadmin") {
+        const permissionResult = await pool.query(
+          `SELECT 1
+           FROM public.user_permission
+           WHERE user_id = $1
+             AND right_code = $2
+             AND is_deleted = FALSE
+           LIMIT 1`,
+          [account.userid, rightCode]
+        );
+
+        if (permissionResult.rowCount === 0) {
+          return res.status(403).json({
+            status: "error",
+            message: `You do not have permission to perform this employee action (${rightCode}).`,
+          });
+        }
+      }
+
+      return next();
+    } catch (error) {
+      console.error("Employee authorization error:", error);
+
+      return res.status(500).json({
+        status: "error",
+        message: "Unable to verify your employee permissions.",
+      });
     }
-
-    return next();
-  } catch (error) {
-    console.error("Employee authorization error:", error);
-
-    return res.status(500).json({
-      status: "error",
-      message: "Unable to verify your employee permissions.",
-    });
-  }
+  };
 }
 
-router.use(requireEmployeeViewAccess);
+function validateEmployeeData(body) {
+  const empno =
+    typeof body?.empno === "string" ? body.empno.trim().toUpperCase() : "";
+  const firstname =
+    typeof body?.firstname === "string" ? body.firstname.trim() : "";
+  const lastname =
+    typeof body?.lastname === "string" ? body.lastname.trim() : "";
+  const gender =
+    typeof body?.gender === "string" ? body.gender.trim().toUpperCase() : "";
+  const birthdate =
+    typeof body?.birthdate === "string" ? body.birthdate.trim() : "";
+  const hiredate =
+    typeof body?.hiredate === "string" ? body.hiredate.trim() : "";
+  const sepdate =
+    typeof body?.sepdate === "string" && body.sepdate.trim()
+      ? body.sepdate.trim()
+      : null;
+
+  if (!/^[A-Z0-9]{1,5}$/.test(empno)) {
+    return { error: "Employee number must contain 1 to 5 letters or numbers." };
+  }
+  if (!firstname || [...firstname].length > 15) {
+    return { error: "First name is required and cannot exceed 15 characters." };
+  }
+  if (!lastname || [...lastname].length > 15) {
+    return { error: "Last name is required and cannot exceed 15 characters." };
+  }
+  if (!["M", "F"].includes(gender)) {
+    return { error: "Select a valid gender." };
+  }
+  if (!isValidDate(birthdate) || !isValidDate(hiredate)) {
+    return { error: "Enter a valid birth date and hire date." };
+  }
+  if (sepdate && !isValidDate(sepdate)) {
+    return { error: "Enter a valid separation date." };
+  }
+  if (birthdate >= hiredate) {
+    return { error: "Birth date must be earlier than the hire date." };
+  }
+  if (sepdate && sepdate < hiredate) {
+    return { error: "Separation date cannot be earlier than the hire date." };
+  }
+
+  const deptcode =
+    typeof body?.deptcode === "string" ? body.deptcode.trim().toUpperCase() : "";
+  const jobcode =
+    typeof body?.jobcode === "string" ? body.jobcode.trim().toUpperCase() : "";
+  const salaryIsSet =
+    body?.salary !== "" &&
+    body?.salary !== null &&
+    body?.salary !== undefined;
+  const salary = salaryIsSet ? Number(body.salary) : null;
+  const salaryText =
+    salaryIsSet && (typeof body.salary === "number" || typeof body.salary === "string")
+      ? String(body.salary)
+      : "";
+
+  if (!/^[A-Z0-9]{1,3}$/.test(deptcode)) {
+    return { error: "Select a valid department." };
+  }
+  if (!/^[A-Z0-9]{1,4}$/.test(jobcode)) {
+    return { error: "Select a valid job." };
+  }
+  if (
+    salaryIsSet &&
+    (!/^\d+(?:\.\d{1,2})?$/.test(salaryText) ||
+      !Number.isFinite(salary) ||
+      salary > 99999999.99)
+  ) {
+    return {
+      error: "Salary must be a non-negative amount with up to 2 decimal places.",
+    };
+  }
+
+  const assignmentEffectiveDate =
+    typeof body?.assignmentEffectiveDate === "string"
+      ? body.assignmentEffectiveDate.trim()
+      : "";
+
+  if (assignmentEffectiveDate && !isValidDate(assignmentEffectiveDate)) {
+    return { error: "Enter a valid assignment effective date." };
+  }
+
+  return {
+    employee: {
+      empno,
+      firstname,
+      lastname,
+      gender,
+      birthdate,
+      hiredate,
+      sepdate,
+    },
+    assignment: {
+      deptcode,
+      jobcode,
+      salary,
+      effectiveDate: assignmentEffectiveDate || hiredate,
+    },
+  };
+}
+
+function isValidDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+async function validateAssignmentReferences(client, assignment) {
+  const [department, job] = await Promise.all([
+    client.query(
+      "SELECT 1 FROM public.department WHERE deptcode = $1",
+      [assignment.deptcode]
+    ),
+    client.query("SELECT 1 FROM public.job WHERE jobcode = $1", [
+      assignment.jobcode,
+    ]),
+  ]);
+
+  if (department.rowCount === 0) {
+    return "Selected department does not exist.";
+  }
+  if (job.rowCount === 0) {
+    return "Selected job does not exist.";
+  }
+
+  return null;
+}
+
+router.use(requireEmployeePermission("employees.view"));
 
 router.get("/options", async (req, res) => {
   try {
@@ -154,15 +288,21 @@ router.get("/", async (req, res) => {
          employee.firstname,
          employee.lastname,
          employee.gender,
-         employee.hiredate,
-         employee.sepdate,
+         employee.birthdate::text AS birthdate,
+         employee.hiredate::text AS hiredate,
+         employee.sepdate::text AS sepdate,
          current_assignment.jobcode,
          current_assignment.jobdesc,
          current_assignment.deptcode,
-         current_assignment.deptname
+         current_assignment.deptname,
+         latest_history.salary,
+         current_assignment.effdate::text AS effdate
        FROM public.employee AS employee
        LEFT JOIN public.vw_employee_current_job_department AS current_assignment
          ON current_assignment.empno = employee.empno
+       LEFT JOIN public.jobhistory AS latest_history
+         ON latest_history.empno = employee.empno
+        AND latest_history.effdate = current_assignment.effdate
        ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
        ORDER BY employee.lastname NULLS LAST,
                 employee.firstname NULLS LAST,
@@ -183,5 +323,293 @@ router.get("/", async (req, res) => {
     });
   }
 });
+
+router.post("/", requireEmployeePermission("employees.add"), async (req, res) => {
+  const validation = validateEmployeeData(req.body);
+
+  if (validation.error) {
+    return res.status(400).json({
+      status: "error",
+      message: validation.error,
+    });
+  }
+
+  const { employee, assignment } = validation;
+  assignment.effectiveDate = employee.hiredate;
+  let client;
+
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const referenceError = await validateAssignmentReferences(client, assignment);
+    if (referenceError) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        status: "error",
+        message: referenceError,
+      });
+    }
+
+    await client.query(
+      `INSERT INTO public.employee
+         (empno, firstname, lastname, gender, birthdate, hiredate, sepdate)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        employee.empno,
+        employee.firstname,
+        employee.lastname,
+        employee.gender,
+        employee.birthdate,
+        employee.hiredate,
+        employee.sepdate,
+      ]
+    );
+
+    await client.query(
+      `INSERT INTO public.jobhistory (empno, jobcode, effdate, salary, deptcode)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        employee.empno,
+        assignment.jobcode,
+        assignment.effectiveDate,
+        assignment.salary,
+        assignment.deptcode,
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(201).json({
+      status: "success",
+      message: "Employee created successfully.",
+      empno: employee.empno,
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK");
+
+    if (error.code === "23505") {
+      return res.status(409).json({
+        status: "error",
+        message: "An employee with this employee number already exists.",
+      });
+    }
+    if (error.code === "23503") {
+      return res.status(409).json({
+        status: "error",
+        message: "The selected department or job is no longer available.",
+      });
+    }
+
+    console.error("Employee creation error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to create employee.",
+    });
+  } finally {
+    client?.release();
+  }
+});
+
+router.put(
+  "/:empno",
+  requireEmployeePermission("employees.edit"),
+  async (req, res) => {
+    const validation = validateEmployeeData({
+      ...req.body,
+      empno: req.params.empno,
+    });
+
+    if (validation.error) {
+      return res.status(400).json({
+        status: "error",
+        message: validation.error,
+      });
+    }
+
+    const { employee, assignment } = validation;
+    let client;
+
+    try {
+      client = await pool.connect();
+      await client.query("BEGIN");
+
+      const existingResult = await client.query(
+        `SELECT e.hiredate, e.sepdate
+         FROM public.employee AS e
+         WHERE e.empno = $1
+         FOR UPDATE`,
+        [employee.empno]
+      );
+
+      if (existingResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          status: "error",
+          message: "Employee not found.",
+        });
+      }
+
+      const referenceError = await validateAssignmentReferences(
+        client,
+        assignment
+      );
+      if (referenceError) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          status: "error",
+          message: referenceError,
+        });
+      }
+
+      const historyResult = await client.query(
+        `SELECT jobcode, deptcode, salary,
+                TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate
+         FROM public.jobhistory
+         WHERE empno = $1
+         ORDER BY effdate DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [employee.empno]
+      );
+      const initialHistoryResult = await client.query(
+        `SELECT TO_CHAR(MIN(effdate), 'YYYY-MM-DD') AS first_effdate
+         FROM public.jobhistory
+         WHERE empno = $1`,
+        [employee.empno]
+      );
+
+      const currentAssignment = historyResult.rows[0];
+      const firstEffectiveDate = initialHistoryResult.rows[0].first_effdate;
+
+      if (
+        firstEffectiveDate &&
+        employee.hiredate > firstEffectiveDate
+      ) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          status: "error",
+          message: "Hire date cannot be later than the employee's first job assignment.",
+        });
+      }
+
+      const assignmentChanged =
+        !currentAssignment ||
+        currentAssignment.jobcode !== assignment.jobcode ||
+        currentAssignment.deptcode !== assignment.deptcode ||
+        (currentAssignment.salary === null
+          ? assignment.salary !== null
+          : assignment.salary === null ||
+            Number(currentAssignment.salary) !== assignment.salary);
+
+      if (currentAssignment && employee.sepdate) {
+        const latestEffectiveDate = currentAssignment.effdate;
+        if (employee.sepdate < latestEffectiveDate) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            status: "error",
+            message: "Separation date cannot be earlier than the latest job assignment.",
+          });
+        }
+      }
+
+      if (assignmentChanged) {
+        const effectiveDate = assignment.effectiveDate;
+        const minimumEffectiveDate = currentAssignment
+          ? currentAssignment.effdate
+          : employee.hiredate;
+
+        if (
+          effectiveDate < minimumEffectiveDate ||
+          (effectiveDate === minimumEffectiveDate && currentAssignment)
+        ) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            status: "error",
+            message: "A new job assignment must take effect after the current assignment.",
+          });
+        }
+        if (
+          effectiveDate < employee.hiredate ||
+          (employee.sepdate && effectiveDate > employee.sepdate)
+        ) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            status: "error",
+            message: "Assignment effective date must be between the hire and separation dates.",
+          });
+        }
+      }
+
+      await client.query(
+        `UPDATE public.employee
+         SET firstname = $1,
+             lastname = $2,
+             gender = $3,
+             birthdate = $4,
+             hiredate = $5,
+             sepdate = $6
+         WHERE empno = $7`,
+        [
+          employee.firstname,
+          employee.lastname,
+          employee.gender,
+          employee.birthdate,
+          employee.hiredate,
+          employee.sepdate,
+          employee.empno,
+        ]
+      );
+
+      if (assignmentChanged) {
+        await client.query(
+          `INSERT INTO public.jobhistory (empno, jobcode, effdate, salary, deptcode)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            employee.empno,
+            assignment.jobcode,
+            assignment.effectiveDate,
+            assignment.salary,
+            assignment.deptcode,
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      return res.json({
+        status: "success",
+        message: "Employee updated successfully.",
+        empno: employee.empno,
+        assignmentUpdated: assignmentChanged,
+      });
+    } catch (error) {
+      if (client) await client.query("ROLLBACK");
+
+      if (error.code === "23505") {
+        return res.status(409).json({
+          status: "error",
+          message: "A job history record already exists for that effective date.",
+        });
+      }
+      if (error.code === "23503") {
+        return res.status(409).json({
+          status: "error",
+          message: "The selected department or job is no longer available.",
+        });
+      }
+
+      console.error("Employee update error:", error);
+
+      return res.status(500).json({
+        status: "error",
+        message: "Unable to update employee.",
+      });
+    } finally {
+      client?.release();
+    }
+  }
+);
 
 module.exports = router;
