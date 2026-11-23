@@ -9,6 +9,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const productRoutes = require("./routes/productRoutes");
+const employeeRoutes = require("./routes/employeeRoutes");
 const jobRoutes = require("./routes/jobRoutes");
 const departmentRoutes = require("./routes/departmentRoutes");
 
@@ -54,6 +55,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/employees", employeeRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/departments", departmentRoutes);
 

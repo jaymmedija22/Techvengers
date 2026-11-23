@@ -2343,6 +2343,35 @@ body {
   cursor: not-allowed;
 }
 
+.employee-table-controls {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.employee-table-controls .user-search {
+  flex: 1 1 300px;
+  max-width: 430px;
+}
+
+.employee-table-controls .user-role-filter {
+  flex: 0 1 180px;
+}
+
+.employee-clear-filters {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.employee-clear-filters:hover {
+  background: #f8fafc;
+}
+
 
 /* =====================================
    CUSTOMER DELETE / RESTORE CONFIRMATION
