@@ -3,6 +3,20 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 
 const API_URL = "http://localhost:3000/api/employees";
+const DEFAULT_ASSIGNMENT_DATE = new Date().toISOString().slice(0, 10);
+const EMPTY_FORM = {
+  empno: "",
+  firstname: "",
+  lastname: "",
+  gender: "",
+  birthdate: "",
+  hiredate: "",
+  sepdate: "",
+  jobcode: "",
+  deptcode: "",
+  salary: "",
+  assignmentEffectiveDate: "",
+};
 
 function formatDate(value) {
   if (!value) return "—";
@@ -15,10 +29,18 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function dateInputValue(value) {
+  return value ? String(value).slice(0, 10) : "";
+}
+
 function EmployeeManagement() {
   const { user, loading: authLoading } = useAuth();
   const canView = user?.role_name === "Superadmin"
     || user?.permissions?.includes("employees.view");
+  const canAdd = user?.role_name === "Superadmin"
+    || user?.permissions?.includes("employees.add");
+  const canEdit = user?.role_name === "Superadmin"
+    || user?.permissions?.includes("employees.edit");
 
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -29,6 +51,12 @@ function EmployeeManagement() {
   const [employmentStatus, setEmploymentStatus] = useState("active");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const fetchEmployees = useCallback(async (signal) => {
     try {
@@ -116,6 +144,133 @@ function EmployeeManagement() {
     setError("");
   }
 
+  function openAddModal() {
+    setEditingEmployee(null);
+    setForm(EMPTY_FORM);
+    setFormError("");
+    setError("");
+    setSuccess("");
+    setModalOpen(true);
+  }
+
+  function openEditModal(employee) {
+    setEditingEmployee(employee);
+    setForm({
+      empno: employee.empno,
+      firstname: employee.firstname || "",
+      lastname: employee.lastname || "",
+      gender: employee.gender || "",
+      birthdate: dateInputValue(employee.birthdate),
+      hiredate: dateInputValue(employee.hiredate),
+      sepdate: dateInputValue(employee.sepdate),
+      jobcode: employee.jobcode || "",
+      deptcode: employee.deptcode || "",
+      salary: employee.salary ?? "",
+      assignmentEffectiveDate: DEFAULT_ASSIGNMENT_DATE,
+    });
+    setFormError("");
+    setError("");
+    setSuccess("");
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    if (saving) return;
+    setModalOpen(false);
+    setForm(EMPTY_FORM);
+    setFormError("");
+  }
+
+  function handleFormChange(event) {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setFormError("");
+    setError("");
+    setSuccess("");
+
+    const values = {
+      ...form,
+      empno: form.empno.trim().toUpperCase(),
+      firstname: form.firstname.trim(),
+      lastname: form.lastname.trim(),
+      gender: form.gender.toUpperCase(),
+      jobcode: form.jobcode.toUpperCase(),
+      deptcode: form.deptcode.toUpperCase(),
+      salary: form.salary === "" ? null : Number(form.salary),
+    };
+
+    if (!/^[A-Z0-9]{1,5}$/.test(values.empno)) {
+      setFormError("Employee number must contain 1 to 5 letters or numbers.");
+      return;
+    }
+    if (!values.firstname || [...values.firstname].length > 15) {
+      setFormError("First name is required and cannot exceed 15 characters.");
+      return;
+    }
+    if (!values.lastname || [...values.lastname].length > 15) {
+      setFormError("Last name is required and cannot exceed 15 characters.");
+      return;
+    }
+    if (!values.gender || !values.birthdate || !values.hiredate) {
+      setFormError("Gender, birth date, and hire date are required.");
+      return;
+    }
+    if (values.birthdate >= values.hiredate) {
+      setFormError("Birth date must be earlier than the hire date.");
+      return;
+    }
+    if (values.sepdate && values.sepdate < values.hiredate) {
+      setFormError("Separation date cannot be earlier than the hire date.");
+      return;
+    }
+    if (!values.jobcode || !values.deptcode) {
+      setFormError("Select a department and job.");
+      return;
+    }
+    if (
+      values.salary !== null &&
+      (!Number.isFinite(values.salary) || values.salary < 0)
+    ) {
+      setFormError("Salary must be a non-negative number.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const response = await fetch(
+        editingEmployee
+          ? `${API_URL}/${encodeURIComponent(editingEmployee.empno)}`
+          : API_URL,
+        {
+          method: editingEmployee ? "PUT" : "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to save employee.");
+      }
+
+      setModalOpen(false);
+      setForm(EMPTY_FORM);
+      setSuccess(data.message);
+      setLoading(true);
+      await fetchEmployees(new AbortController().signal);
+    } catch (saveError) {
+      setFormError(saveError.message || "Unable to save employee.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const activeCount = employees.filter((employee) => !employee.sepdate).length;
 
   if (authLoading) {
@@ -178,10 +333,25 @@ function EmployeeManagement() {
                       : "All employee records"}
                 </p>
               </div>
-              <span className="user-count">
-                {employees.length} employees
-              </span>
+              <div className="customer-heading-actions">
+                <span className="user-count">{employees.length} employees</span>
+                {canAdd && (
+                  <button
+                    type="button"
+                    className="user-add-button"
+                    onClick={openAddModal}
+                  >
+                    + Add Employee
+                  </button>
+                )}
+              </div>
             </div>
+
+            {success && (
+              <div className="user-alert user-alert-success" role="status">
+                {success}
+              </div>
+            )}
 
             <div className="user-table-controls employee-table-controls">
               <label className="user-search" htmlFor="employee-search">
@@ -252,23 +422,26 @@ function EmployeeManagement() {
                     <th>EMPLOYEE NO.</th>
                     <th>EMPLOYEE NAME</th>
                     <th>GENDER</th>
+                    <th>BIRTH DATE</th>
                     <th>HIRE DATE</th>
                     <th>CURRENT JOB</th>
                     <th>DEPARTMENT</th>
+                    <th>SALARY</th>
                     <th>STATUS</th>
                     <th>SEPARATION DATE</th>
+                    {canEdit && <th>ACTIONS</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="user-empty-state">
+                      <td colSpan={canEdit ? 11 : 10} className="user-empty-state">
                         Loading employees...
                       </td>
                     </tr>
                   ) : employees.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="user-empty-state">
+                      <td colSpan={canEdit ? 11 : 10} className="user-empty-state">
                         No employees match the current search and filters.
                       </td>
                     </tr>
@@ -284,11 +457,20 @@ function EmployeeManagement() {
                           <td>{employee.empno}</td>
                           <td>{fullName || "—"}</td>
                           <td>{employee.gender || "—"}</td>
+                          <td>{formatDate(employee.birthdate)}</td>
                           <td>{formatDate(employee.hiredate)}</td>
                           <td>
                             {employee.jobdesc
                               ? `${employee.jobdesc} (${employee.jobcode})`
                               : "—"}
+                          </td>
+                          <td>
+                            {employee.salary === null || employee.salary === undefined
+                              ? "—"
+                              : Number(employee.salary).toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                           </td>
                           <td>
                             {employee.deptname
@@ -303,6 +485,17 @@ function EmployeeManagement() {
                             </span>
                           </td>
                           <td>{formatDate(employee.sepdate)}</td>
+                          {canEdit && (
+                            <td>
+                              <button
+                                type="button"
+                                className="employee-edit-button"
+                                onClick={() => openEditModal(employee)}
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -320,6 +513,238 @@ function EmployeeManagement() {
           </section>
         </div>
       </main>
+
+      {modalOpen && (
+        <div
+          className="customer-modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeModal();
+          }}
+        >
+          <section
+            className="customer-modal employee-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="employee-modal-title"
+          >
+            <div className="customer-modal-header">
+              <h2 id="employee-modal-title">
+                {editingEmployee ? "Edit Employee" : "Register Employee"}
+              </h2>
+              <button
+                type="button"
+                className="customer-modal-close"
+                onClick={closeModal}
+                disabled={saving}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              {formError && (
+                <div className="user-alert user-alert-error" role="alert">
+                  {formError}
+                </div>
+              )}
+
+              <div className="employee-form-grid">
+                <div className="customer-form-group">
+                  <label htmlFor="employee-number">Employee Number</label>
+                  <input
+                    id="employee-number"
+                    name="empno"
+                    type="text"
+                    maxLength={5}
+                    pattern="[A-Za-z0-9]{1,5}"
+                    value={form.empno}
+                    onChange={handleFormChange}
+                    placeholder="e.g. 00123"
+                    required
+                    disabled={!!editingEmployee || saving}
+                  />
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-first-name">First Name</label>
+                  <input
+                    id="employee-first-name"
+                    name="firstname"
+                    type="text"
+                    maxLength={15}
+                    value={form.firstname}
+                    onChange={handleFormChange}
+                    required
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-last-name">Last Name</label>
+                  <input
+                    id="employee-last-name"
+                    name="lastname"
+                    type="text"
+                    maxLength={15}
+                    value={form.lastname}
+                    onChange={handleFormChange}
+                    required
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-gender">Gender</label>
+                  <select
+                    id="employee-gender"
+                    name="gender"
+                    value={form.gender}
+                    onChange={handleFormChange}
+                    required
+                    disabled={saving}
+                  >
+                    <option value="">Select gender</option>
+                    <option value="F">Female</option>
+                    <option value="M">Male</option>
+                  </select>
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-birth-date">Birth Date</label>
+                  <input
+                    id="employee-birth-date"
+                    name="birthdate"
+                    type="date"
+                    value={form.birthdate}
+                    onChange={handleFormChange}
+                    required
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-hire-date">Hire Date</label>
+                  <input
+                    id="employee-hire-date"
+                    name="hiredate"
+                    type="date"
+                    value={form.hiredate}
+                    onChange={handleFormChange}
+                    required
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-separation-date">Separation Date</label>
+                  <input
+                    id="employee-separation-date"
+                    name="sepdate"
+                    type="date"
+                    value={form.sepdate}
+                    onChange={handleFormChange}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-department">Department</label>
+                  <select
+                    id="employee-department"
+                    name="deptcode"
+                    value={form.deptcode}
+                    onChange={handleFormChange}
+                    required
+                    disabled={saving}
+                  >
+                    <option value="">Select department</option>
+                    {departments.map((item) => (
+                      <option key={item.deptcode} value={item.deptcode}>
+                        {item.deptname} ({item.deptcode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-job">Job</label>
+                  <select
+                    id="employee-job"
+                    name="jobcode"
+                    value={form.jobcode}
+                    onChange={handleFormChange}
+                    required
+                    disabled={saving}
+                  >
+                    <option value="">Select job</option>
+                    {jobs.map((item) => (
+                      <option key={item.jobcode} value={item.jobcode}>
+                        {item.jobdesc} ({item.jobcode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="customer-form-group">
+                  <label htmlFor="employee-salary">Salary (optional)</label>
+                  <input
+                    id="employee-salary"
+                    name="salary"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.salary}
+                    onChange={handleFormChange}
+                    disabled={saving}
+                  />
+                </div>
+
+                {editingEmployee && (
+                  <div className="customer-form-group">
+                    <label htmlFor="assignment-effective-date">
+                      Assignment Effective Date
+                    </label>
+                    <input
+                      id="assignment-effective-date"
+                      name="assignmentEffectiveDate"
+                      type="date"
+                      value={form.assignmentEffectiveDate}
+                      onChange={handleFormChange}
+                      disabled={saving}
+                    />
+                    <small>
+                      Used only when the job, department, or salary changes.
+                    </small>
+                  </div>
+                )}
+              </div>
+
+              <div className="customer-modal-actions">
+                <button
+                  type="button"
+                  className="customer-cancel-button"
+                  onClick={closeModal}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="customer-save-button"
+                  disabled={saving}
+                >
+                  {saving
+                    ? "Saving..."
+                    : editingEmployee
+                      ? "Save Changes"
+                      : "Create Employee"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

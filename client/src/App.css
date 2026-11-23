@@ -2372,6 +2372,41 @@ body {
   background: #f8fafc;
 }
 
+.employee-edit-button {
+  padding: 6px 11px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.employee-edit-button:hover {
+  background: #dbeafe;
+}
+
+.employee-modal {
+  max-width: 760px;
+}
+
+.employee-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.employee-form-grid .customer-form-group small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .employee-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 /* =====================================
    CUSTOMER DELETE / RESTORE CONFIRMATION
