@@ -10,6 +10,7 @@
   import UserManagement from './pages/UserManagement'
   import CustomerList from './pages/CustomerList'
   import ProductList from './pages/ProductList'
+  import DepartmentManagement from './pages/DepartmentManagement'
 
   function App() {
     return (
@@ -25,6 +26,7 @@
             <Route path="/users" element={<UserManagement />} />
             <Route path="/customers" element={<CustomerList />} />
             <Route path="/products" element={<ProductList />} />
+            <Route path="/departments" element={<DepartmentManagement />} />
             <Route path="/set-password" element={<SetPassword />} />
           </Routes>
         </AuthProvider>
@@ -33,4 +35,3 @@
   }
 
   export default App
-
