@@ -42,21 +42,29 @@ try {
     }
     $databaseCreated = $true
 
+    & $psql --no-psqlrc --set ON_ERROR_STOP=1 --command "CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY)" --dbname $databaseName
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to prepare the temporary Supabase auth reference stub."
+    }
+
     $encodedPassword = [Uri]::EscapeDataString($plainPassword)
-    $env:HOPE_RESTORE_DATABASE_URL = "postgresql://postgres:$encodedPassword@127.0.0.1:5432/$databaseName?sslmode=disable"
+    $env:HOPE_RESTORE_DATABASE_URL = "postgresql://postgres:$encodedPassword@127.0.0.1:5432/${databaseName}?sslmode=disable"
     $env:HOPE_RESTORE_TARGET_IS_DISPOSABLE = "YES"
+    $env:HOPE_RESTORE_LOCAL_AUTH_STUB = "YES"
 
     & (Join-Path $PSScriptRoot "restore.ps1") -BackupFile $resolvedBackupPath -ConfirmDisposableTarget -Confirm:$false
 } finally {
     $cleanupExitCode = 0
     if ($databaseCreated) {
         $env:PGDATABASE = "postgres"
+        $env:PGSSLMODE = "disable"
         & $psql --no-psqlrc --set ON_ERROR_STOP=1 --command "DROP DATABASE $databaseName" --dbname "postgres"
         $cleanupExitCode = $LASTEXITCODE
     }
 
     Remove-Item Env:HOPE_RESTORE_DATABASE_URL -ErrorAction SilentlyContinue
     Remove-Item Env:HOPE_RESTORE_TARGET_IS_DISPOSABLE -ErrorAction SilentlyContinue
+    Remove-Item Env:HOPE_RESTORE_LOCAL_AUTH_STUB -ErrorAction SilentlyContinue
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
     Remove-Item Env:PGDATABASE -ErrorAction SilentlyContinue
     $plainPassword = $null

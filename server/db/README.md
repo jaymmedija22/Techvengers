@@ -68,7 +68,8 @@ The script writes a timestamped custom-format dump and a SHA-256 sidecar under
 application tables, and session data. PostgreSQL cluster-wide roles and server
 configuration are managed separately and are not part of a database dump.
 Keep backup files in approved encrypted, access-controlled storage; do not
-commit them.
+commit them. Supabase-managed `auth` records are not included; use the approved
+Supabase recovery process separately when full sign-in recovery is required.
 
 ## Restore to a disposable database
 
@@ -77,8 +78,16 @@ database whose name includes `test`, `sandbox`, `restore`, `local`, or `dev`.
 Names containing `prod`, `production`, or `live` are rejected. The script
 requires explicit disposable-target confirmation, verifies the archive
 checksum and format, and checks for existing public objects before restoring.
-It never uses `--clean` or drops objects. Restore runs in one transaction and
-verifies essential HR tables, row counts, and employee references afterward.
+After confirmation, it preserves the target's default `public` schema,
+installs the required `pg_trgm` extension, and omits the archive's duplicate
+`public` schema definition. It never uses `--clean` or drops existing objects.
+The public-schema archive contains a foreign key to Supabase-managed
+`auth.users`; a real restore target must provide that schema and its referenced
+user records. The local disposable test creates only a minimal `auth.users(id)`
+reference table and matching IDs so it can verify the foreign key. It does not
+back up or restore Supabase authentication records and cannot verify sign-in.
+The archive's object restore runs in one transaction and verifies essential HR
+tables, row counts, and employee/auth references afterward.
 
 For a local restore test, run the helper below. It asks for the local
 PostgreSQL `postgres` password through a hidden prompt, creates a uniquely
@@ -102,18 +111,19 @@ development, or otherwise active database. Restore with the same or a newer
 PostgreSQL major version than the backup source.
 
 The restore script verifies the presence of the employee, department, job,
-and job-history tables and checks that every history row references an
-employee. It prints restored row counts. Verify additional application-specific
-objects and sign-in behavior in the disposable environment before accepting a
-recovery test.
+job-history, and app-user tables; it checks the required app-user and job-history
+foreign keys and validates employee/auth references. It prints restored row
+counts. Verify additional application-specific objects and sign-in behavior in
+the disposable environment before accepting a recovery test.
 
 ### Recovery verification status
 
 The PowerShell scripts passed parser checks, and connection-string handling was
-tested with a dummy URL without printing credentials. `pg_dump` 17.12 created
-a non-empty custom-format backup and SHA-256 sidecar from the authorized
-development database. The isolated local restore helper is available, but a
-restore has not yet been run because it needs the local PostgreSQL password,
-which is entered interactively by the developer. Do not treat recovery as
-end-to-end verified until that helper completes and the printed table counts
-and integrity checks have been reviewed.
+tested without printing credentials. `pg_dump` 17.12 created a non-empty
+custom-format backup and SHA-256 sidecar from the authorized development
+database. On 2026-11-24, the local isolated restore completed successfully on
+PostgreSQL 17.12; it restored 40 employees, 12 departments, 22 jobs, and 68 job
+history rows, verified HR and auth references, and removed its temporary
+database. The local test used eight placeholder auth IDs in a minimal stub;
+Supabase auth records and actual sign-in recovery remain outside this backup
+and were not tested.

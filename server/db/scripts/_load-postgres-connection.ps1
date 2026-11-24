@@ -90,6 +90,11 @@ function Set-HopePostgresConnectionFromEnvironment {
         } else {
             ""
         }
+        if ($key -eq "SSLMODE") {
+            $env:PGSSLMODE = $value
+            continue
+        }
+
         $environmentKey = if ($key -eq "APPLICATION_NAME") {
             "PGAPPNAME"
         } else {
