@@ -18,7 +18,7 @@ try {
     $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
     $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
 
-    $env:PGHOST = "localhost"
+    $env:PGHOST = "127.0.0.1"
     $env:PGPORT = "5432"
     $env:PGUSER = "postgres"
     $env:PGPASSWORD = $plainPassword
@@ -43,7 +43,7 @@ try {
     $databaseCreated = $true
 
     $encodedPassword = [Uri]::EscapeDataString($plainPassword)
-    $env:HOPE_RESTORE_DATABASE_URL = "postgresql://postgres:$encodedPassword@localhost:5432/$databaseName?sslmode=disable"
+    $env:HOPE_RESTORE_DATABASE_URL = "postgresql://postgres:$encodedPassword@127.0.0.1:5432/$databaseName?sslmode=disable"
     $env:HOPE_RESTORE_TARGET_IS_DISPOSABLE = "YES"
 
     & (Join-Path $PSScriptRoot "restore.ps1") -BackupFile $resolvedBackupPath -ConfirmDisposableTarget -Confirm:$false
