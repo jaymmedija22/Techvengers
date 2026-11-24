@@ -42,7 +42,7 @@ function EmployeeManagement() {
   const canView = user?.role_name === "Superadmin"
     || user?.permissions?.includes("employees.view");
   const canViewSalary = user?.role_name === "Superadmin"
-    || user?.permissions?.includes("employees.salary.view");
+    || user?.permissions?.includes("job_history.view");
   const canAdd = user?.role_name === "Superadmin"
     || user?.permissions?.includes("employees.add");
   const canEdit = user?.role_name === "Superadmin"
