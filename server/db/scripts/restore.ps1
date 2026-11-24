@@ -10,11 +10,8 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "_load-postgres-connection.ps1")
 
-$pgRestore = Get-Command pg_restore -ErrorAction SilentlyContinue
-$psql = Get-Command psql -ErrorAction SilentlyContinue
-if (!$pgRestore -or !$psql) {
-    throw "pg_restore and psql are required. Install PostgreSQL command-line client tools and retry."
-}
+$pgRestore = Resolve-HopePostgresTool -Name "pg_restore"
+$psql = Resolve-HopePostgresTool -Name "psql"
 if (!$ConfirmDisposableTarget) {
     throw "Restore requires -ConfirmDisposableTarget and a newly created, empty, non-production database."
 }
@@ -43,7 +40,7 @@ if ($actualHash -ne $expectedHash) {
     throw "Backup checksum verification failed."
 }
 
-& $pgRestore.Source --list "$resolvedBackupPath" | Out-Null
+& $pgRestore --list "$resolvedBackupPath" | Out-Null
 if ($LASTEXITCODE -ne 0) {
     throw "The selected file is not a readable PostgreSQL custom-format backup."
 }
@@ -63,7 +60,7 @@ SELECT
      WHERE typnamespace = 'public'::regnamespace
        AND typtype IN ('c', 'd', 'e', 'r'));
 "@
-$relationCount = & $psql.Source --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command $emptyCheck --dbname "$databaseName"
+$relationCount = & $psql --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command $emptyCheck --dbname "$databaseName"
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to verify that the restore target is empty."
 }
@@ -76,7 +73,7 @@ if (!$PSCmdlet.ShouldProcess("empty non-production database '$databaseName'", "R
 }
 
 Write-Output "Restoring into verified empty non-production database '$databaseName'. Existing objects are never dropped."
-& $pgRestore.Source --exit-on-error --single-transaction --no-owner --no-acl --dbname "$databaseName" "$resolvedBackupPath"
+& $pgRestore --exit-on-error --single-transaction --no-owner --no-acl --dbname "$databaseName" "$resolvedBackupPath"
 if ($LASTEXITCODE -ne 0) {
     throw "pg_restore failed with exit code $LASTEXITCODE."
 }
@@ -108,7 +105,7 @@ SELECT CASE
     ELSE 'hr_references=failed'
 END;
 "@
-$verification = & $psql.Source --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command $verificationSql --dbname "$databaseName"
+$verification = & $psql --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command $verificationSql --dbname "$databaseName"
 if ($LASTEXITCODE -ne 0 -or $verification -notcontains "ok" -or $verification -notcontains "hr_references=ok") {
     throw "Restore completed but post-restore object or HR referential-integrity verification failed."
 }

@@ -80,15 +80,20 @@ checksum and format, and checks for existing public objects before restoring.
 It never uses `--clean` or drops objects. Restore runs in one transaction and
 verifies essential HR tables, row counts, and employee references afterward.
 
-Create a separate disposable database using the team's approved process, then
-set the following process environment variables using the approved secret
-manager. Do not copy production credentials into a development environment.
+For a local restore test, run the helper below. It asks for the local
+PostgreSQL `postgres` password through a hidden prompt, creates a uniquely
+named temporary database from `template0`, restores and verifies the backup,
+then drops only that temporary database. It does not alter the local `postgres`
+database or any shared database. Type `RESTORE` at the explicit confirmation.
 
 ```powershell
-# Set HOPE_RESTORE_DATABASE_URL through the approved secret manager in this process.
-$env:HOPE_RESTORE_TARGET_IS_DISPOSABLE = "YES"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\db\scripts\restore.ps1 -BackupFile .\db\backups\hope-erp-20260101T000000000Z.dump -ConfirmDisposableTarget -Confirm
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\db\scripts\test-restore-local.ps1 -BackupFile .\db\backups\hope-erp-20261124T091057729Z.dump
 ```
+
+For a team-managed test server instead, set
+`HOPE_RESTORE_DATABASE_URL` and `HOPE_RESTORE_TARGET_IS_DISPOSABLE=YES` in the
+process environment using the approved secret manager, then run `restore.ps1`
+directly. Never paste connection URLs or passwords into chat or source control.
 
 `-Confirm` prompts for one more explicit confirmation. A non-empty or
 unrecognized database target is rejected before restore. Use a fresh database
@@ -105,9 +110,10 @@ recovery test.
 ### Recovery verification status
 
 The PowerShell scripts passed parser checks, and connection-string handling was
-tested with a dummy URL without printing credentials. A real backup and restore
-have not yet been run: the development workstation does not have `pg_dump`,
-`pg_restore`, or `psql`, and no disposable empty restore database is configured.
-Do not treat recovery as end-to-end verified until both scripts complete
-successfully against an isolated test database and the printed table counts and
-integrity checks have been reviewed.
+tested with a dummy URL without printing credentials. `pg_dump` 17.12 created
+a non-empty custom-format backup and SHA-256 sidecar from the authorized
+development database. The isolated local restore helper is available, but a
+restore has not yet been run because it needs the local PostgreSQL password,
+which is entered interactively by the developer. Do not treat recovery as
+end-to-end verified until that helper completes and the printed table counts
+and integrity checks have been reviewed.

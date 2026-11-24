@@ -1,15 +1,15 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot "..\backups")
+    [string]$OutputDirectory
 )
 
 $ErrorActionPreference = "Stop"
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $OutputDirectory = Join-Path $PSScriptRoot "..\backups"
+}
 . (Join-Path $PSScriptRoot "_load-postgres-connection.ps1")
 
-$pgDump = Get-Command pg_dump -ErrorAction SilentlyContinue
-if (!$pgDump) {
-    throw "pg_dump was not found. Install PostgreSQL command-line client tools and retry."
-}
+$pgDump = Resolve-HopePostgresTool -Name "pg_dump"
 
 $databaseName = Set-HopePostgresConnectionFromEnvironment -EnvironmentVariable "HOPE_BACKUP_DATABASE_URL"
 $resolvedOutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
@@ -20,7 +20,7 @@ $backupPath = Join-Path $resolvedOutputDirectory "hope-erp-$timestamp.dump"
 $checksumPath = "$backupPath.sha256"
 
 Write-Output "Creating custom-format backup for database '$databaseName'."
-& $pgDump.Source --format=custom --schema=public --file="$backupPath"
+& $pgDump --format=custom --schema=public --file="$backupPath"
 if ($LASTEXITCODE -ne 0) {
     Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
     throw "pg_dump failed with exit code $LASTEXITCODE."

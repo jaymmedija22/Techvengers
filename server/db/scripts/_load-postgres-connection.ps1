@@ -1,3 +1,29 @@
+function Resolve-HopePostgresTool {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $command = Get-Command $Name -ErrorAction SilentlyContinue
+    if ($command -and $command.CommandType -eq "Application") {
+        return $command.Source
+    }
+
+    $installRoot = Join-Path ([Environment]::GetFolderPath("ProgramFiles")) "PostgreSQL"
+    if (Test-Path -LiteralPath $installRoot) {
+        $versions = Get-ChildItem -LiteralPath $installRoot -Directory |
+            Sort-Object Name -Descending
+        foreach ($version in $versions) {
+            $toolPath = Join-Path $version.FullName "bin\$Name.exe"
+            if (Test-Path -LiteralPath $toolPath) {
+                return $toolPath
+            }
+        }
+    }
+
+    throw "$Name was not found. Install PostgreSQL command-line client tools and retry."
+}
+
 function Set-HopePostgresConnectionFromEnvironment {
     param(
         [Parameter(Mandatory = $true)]
