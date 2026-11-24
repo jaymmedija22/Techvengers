@@ -13,6 +13,7 @@
   import JobManagement from './pages/JobManagement'
   import DepartmentManagement from './pages/DepartmentManagement'
   import EmployeeManagement from './pages/EmployeeManagement'
+  import JobHistoryManagement from './pages/JobHistoryManagement'
 
   function App() {
     return (
@@ -31,6 +32,7 @@
             <Route path="/jobs" element={<JobManagement />} />
             <Route path="/departments" element={<DepartmentManagement />} />
             <Route path="/employees" element={<EmployeeManagement />} />
+            <Route path="/job-history" element={<JobHistoryManagement />} />
             <Route path="/set-password" element={<SetPassword />} />
           </Routes>
         </AuthProvider>

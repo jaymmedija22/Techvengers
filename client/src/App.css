@@ -2443,6 +2443,42 @@ body {
   font-size: 12px;
 }
 
+.job-history-employee-select {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: min(100%, 430px);
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.job-history-employee-select select {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+}
+
+.job-history-modal {
+  max-width: 560px;
+}
+
+.job-history-selected-employee {
+  margin: 0 0 18px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.job-history-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 @media (max-width: 600px) {
   .employee-form-grid {
     grid-template-columns: 1fr;

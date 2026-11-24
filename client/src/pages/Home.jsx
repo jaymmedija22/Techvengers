@@ -36,6 +36,9 @@ function Home() {
   const canViewEmployees =
     user.role_name === 'Superadmin' ||
     user.permissions?.includes('employees.view')
+  const canViewJobHistory =
+    user.role_name === 'Superadmin' ||
+    user.permissions?.includes('job_history.view')
 
   const modules = [
     { name: 'Customer', icon: '👥', target: '/customers' },
@@ -46,6 +49,9 @@ function Home() {
       : []),
     ...(canViewEmployees
       ? [{ name: 'Employees', icon: '👤', target: '/employees' }]
+      : []),
+    ...(canViewJobHistory
+      ? [{ name: 'Job History', icon: '🗂️', target: '/job-history' }]
       : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales', icon: '📈', target: '#sales' },
@@ -63,6 +69,9 @@ function Home() {
       : []),
     ...(canViewEmployees
       ? [{ name: 'Manage Employees', icon: '👤', target: '/employees' }]
+      : []),
+    ...(canViewJobHistory
+      ? [{ name: 'Manage Job History', icon: '🗂️', target: '/job-history' }]
       : []),
     { name: 'Human Resources', icon: '👨‍💼', target: '#human-resources' },
     { name: 'Sales Pipeline', icon: '📈', target: '#sales' },
