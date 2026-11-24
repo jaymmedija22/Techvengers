@@ -101,3 +101,13 @@ and job-history tables and checks that every history row references an
 employee. It prints restored row counts. Verify additional application-specific
 objects and sign-in behavior in the disposable environment before accepting a
 recovery test.
+
+### Recovery verification status
+
+The PowerShell scripts passed parser checks, and connection-string handling was
+tested with a dummy URL without printing credentials. A real backup and restore
+have not yet been run: the development workstation does not have `pg_dump`,
+`pg_restore`, or `psql`, and no disposable empty restore database is configured.
+Do not treat recovery as end-to-end verified until both scripts complete
+successfully against an isolated test database and the printed table counts and
+integrity checks have been reviewed.
