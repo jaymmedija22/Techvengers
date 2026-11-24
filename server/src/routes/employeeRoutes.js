@@ -31,6 +31,7 @@ function requireEmployeePermission(rightCode) {
           message: "Your account is inactive or unavailable.",
         });
       }
+      req.employeeAccount = account;
 
       if (account.role_name !== "Superadmin") {
         const permissionResult = await pool.query(
@@ -61,6 +62,24 @@ function requireEmployeePermission(rightCode) {
       });
     }
   };
+}
+
+async function canViewEmployeeSalary(req) {
+  if (req.employeeAccount?.role_name === "Superadmin") {
+    return true;
+  }
+
+  const permissionResult = await pool.query(
+    `SELECT 1
+     FROM public.user_permission
+     WHERE user_id = $1
+       AND right_code = 'employees.salary.view'
+       AND is_deleted = FALSE
+     LIMIT 1`,
+    [req.employeeAccount.userid]
+  );
+
+  return permissionResult.rowCount > 0;
 }
 
 function validateEmployeeData(body) {
@@ -282,6 +301,7 @@ router.get("/", async (req, res) => {
       )`);
     }
 
+    const includeSalary = await canViewEmployeeSalary(req);
     const result = await pool.query(
       `SELECT
          employee.empno,
@@ -312,7 +332,9 @@ router.get("/", async (req, res) => {
 
     return res.json({
       status: "success",
-      employees: result.rows,
+      employees: includeSalary
+        ? result.rows
+        : result.rows.map(({ salary, ...employee }) => employee),
     });
   } catch (error) {
     console.error("Employee list error:", error);
@@ -320,6 +342,91 @@ router.get("/", async (req, res) => {
     return res.status(500).json({
       status: "error",
       message: "Unable to retrieve employees.",
+    });
+  }
+});
+
+router.get("/:empno/profile", async (req, res) => {
+  const empno =
+    typeof req.params.empno === "string"
+      ? req.params.empno.trim().toUpperCase()
+      : "";
+
+  if (!/^[A-Z0-9]{1,5}$/.test(empno)) {
+    return res.status(400).json({
+      status: "error",
+      message: "Employee number must contain 1 to 5 letters or numbers.",
+    });
+  }
+
+  try {
+    const includeSalary = await canViewEmployeeSalary(req);
+    const salarySelect = includeSalary
+      ? ", current_history.salary::text AS current_salary"
+      : "";
+    const [employeeResult, historyResult] = await Promise.all([
+      pool.query(
+        `SELECT
+           employee.empno,
+           employee.firstname,
+           employee.lastname,
+           employee.gender,
+           employee.birthdate::text AS birthdate,
+           employee.hiredate::text AS hiredate,
+           employee.sepdate::text AS sepdate,
+           assignment.jobcode,
+           assignment.jobdesc,
+           assignment.deptcode,
+           assignment.deptname,
+           assignment.effdate::text AS assignment_effdate
+           ${salarySelect}
+         FROM public.employee AS employee
+         LEFT JOIN public.vw_employee_current_job_department AS assignment
+           ON assignment.empno = employee.empno
+         LEFT JOIN public.jobhistory AS current_history
+           ON current_history.empno = employee.empno
+          AND current_history.effdate = assignment.effdate
+         WHERE employee.empno = $1`,
+        [empno]
+      ),
+      pool.query(
+        `SELECT
+           history.empno,
+           history.jobcode,
+           COALESCE(job.jobdesc, history.jobcode) AS jobdesc,
+           history.deptcode,
+           department.deptname,
+           history.effdate::text AS effdate
+           ${includeSalary ? ", history.salary::text AS salary" : ""}
+         FROM public.jobhistory AS history
+         LEFT JOIN public.job AS job ON job.jobcode = history.jobcode
+         LEFT JOIN public.department AS department
+           ON department.deptcode = history.deptcode
+         WHERE history.empno = $1
+         ORDER BY history.effdate ASC, history.jobcode`,
+        [empno]
+      ),
+    ]);
+
+    if (employeeResult.rowCount === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Employee not found.",
+      });
+    }
+
+    return res.json({
+      status: "success",
+      employee: employeeResult.rows[0],
+      jobHistory: historyResult.rows,
+      canViewSalary: includeSalary,
+    });
+  } catch (error) {
+    console.error("Employee profile error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to retrieve employee profile.",
     });
   }
 });
@@ -691,6 +798,15 @@ router.put(
 
       const currentAssignment = historyResult.rows[0];
       const firstEffectiveDate = initialHistoryResult.rows[0].first_effdate;
+      if (
+        currentAssignment &&
+        !(await canViewEmployeeSalary(req))
+      ) {
+        assignment.salary =
+          currentAssignment.salary === null
+            ? null
+            : Number(currentAssignment.salary);
+      }
 
       if (
         firstEffectiveDate &&
