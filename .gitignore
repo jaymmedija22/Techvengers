@@ -16,6 +16,7 @@ npm-debug.log*
 /server/.env
 /server/.env.*
 !/server/.env.example
+/server/db/backups/
 
 # Editor and operating system files
 .vscode/

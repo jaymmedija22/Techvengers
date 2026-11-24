@@ -293,7 +293,9 @@ router.get("/", async (req, res) => {
         employee.empno ILIKE ${parameter}
         OR COALESCE(employee.firstname, '') ILIKE ${parameter}
         OR COALESCE(employee.lastname, '') ILIKE ${parameter}
-        OR BTRIM(CONCAT_WS(' ', employee.firstname, employee.lastname)) ILIKE ${parameter}
+        OR BTRIM(
+          COALESCE(employee.firstname, '') || ' ' || COALESCE(employee.lastname, '')
+        ) ILIKE ${parameter}
         OR COALESCE(current_assignment.jobcode, '') ILIKE ${parameter}
         OR COALESCE(current_assignment.jobdesc, '') ILIKE ${parameter}
         OR COALESCE(current_assignment.deptcode, '') ILIKE ${parameter}
