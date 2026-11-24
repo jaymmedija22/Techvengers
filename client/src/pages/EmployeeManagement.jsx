@@ -4,6 +4,11 @@ import { useAuth } from "../AuthContext";
 
 const API_URL = "http://localhost:3000/api/employees";
 const DEFAULT_ASSIGNMENT_DATE = new Date().toISOString().slice(0, 10);
+const DEFAULT_SEPARATION_DATE = (() => {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
+})();
 const EMPTY_FORM = {
   empno: "",
   firstname: "",
@@ -11,7 +16,6 @@ const EMPTY_FORM = {
   gender: "",
   birthdate: "",
   hiredate: "",
-  sepdate: "",
   jobcode: "",
   deptcode: "",
   salary: "",
@@ -41,6 +45,10 @@ function EmployeeManagement() {
     || user?.permissions?.includes("employees.add");
   const canEdit = user?.role_name === "Superadmin"
     || user?.permissions?.includes("employees.edit");
+  const canSeparate = user?.role_name === "Superadmin"
+    || user?.permissions?.includes("employees.delete");
+  const canRestore = user?.role_name === "Superadmin"
+    || user?.permissions?.includes("employees.restore");
 
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -57,6 +65,9 @@ function EmployeeManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState(null);
+  const [lifecycleError, setLifecycleError] = useState("");
+  const [lifecycleSaving, setLifecycleSaving] = useState(false);
 
   const fetchEmployees = useCallback(async (signal) => {
     try {
@@ -162,7 +173,6 @@ function EmployeeManagement() {
       gender: employee.gender || "",
       birthdate: dateInputValue(employee.birthdate),
       hiredate: dateInputValue(employee.hiredate),
-      sepdate: dateInputValue(employee.sepdate),
       jobcode: employee.jobcode || "",
       deptcode: employee.deptcode || "",
       salary: employee.salary ?? "",
@@ -172,6 +182,57 @@ function EmployeeManagement() {
     setError("");
     setSuccess("");
     setModalOpen(true);
+  }
+
+  function openLifecycleConfirmation(employee, action) {
+    setLifecycleError("");
+    setLifecycleAction({
+      employee,
+      action,
+      sepdate: action === "separate" ? DEFAULT_SEPARATION_DATE : "",
+    });
+  }
+
+  function closeLifecycleConfirmation() {
+    if (lifecycleSaving) return;
+    setLifecycleAction(null);
+    setLifecycleError("");
+  }
+
+  async function confirmLifecycleAction() {
+    if (!lifecycleAction) return;
+
+    const { employee, action, sepdate } = lifecycleAction;
+    setLifecycleSaving(true);
+    setLifecycleError("");
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/${encodeURIComponent(employee.empno)}/${action}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: action === "separate" ? JSON.stringify({ sepdate }) : undefined,
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `Unable to ${action} employee.`);
+      }
+
+      setLifecycleAction(null);
+      setSuccess(data.message);
+      setLoading(true);
+      await fetchEmployees(new AbortController().signal);
+    } catch (actionError) {
+      setLifecycleError(actionError.message || `Unable to ${action} employee.`);
+    } finally {
+      setLifecycleSaving(false);
+    }
   }
 
   function closeModal() {
@@ -221,10 +282,6 @@ function EmployeeManagement() {
     }
     if (values.birthdate >= values.hiredate) {
       setFormError("Birth date must be earlier than the hire date.");
-      return;
-    }
-    if (values.sepdate && values.sepdate < values.hiredate) {
-      setFormError("Separation date cannot be earlier than the hire date.");
       return;
     }
     if (!values.jobcode || !values.deptcode) {
@@ -429,19 +486,25 @@ function EmployeeManagement() {
                     <th>SALARY</th>
                     <th>STATUS</th>
                     <th>SEPARATION DATE</th>
-                    {canEdit && <th>ACTIONS</th>}
+                    {(canEdit || canSeparate || canRestore) && <th>ACTIONS</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={canEdit ? 11 : 10} className="user-empty-state">
+                      <td
+                        colSpan={canEdit || canSeparate || canRestore ? 11 : 10}
+                        className="user-empty-state"
+                      >
                         Loading employees...
                       </td>
                     </tr>
                   ) : employees.length === 0 ? (
                     <tr>
-                      <td colSpan={canEdit ? 11 : 10} className="user-empty-state">
+                      <td
+                        colSpan={canEdit || canSeparate || canRestore ? 11 : 10}
+                        className="user-empty-state"
+                      >
                         No employees match the current search and filters.
                       </td>
                     </tr>
@@ -465,17 +528,17 @@ function EmployeeManagement() {
                               : "—"}
                           </td>
                           <td>
+                            {employee.deptname
+                              ? `${employee.deptname} (${employee.deptcode})`
+                              : "—"}
+                          </td>
+                          <td>
                             {employee.salary === null || employee.salary === undefined
                               ? "—"
                               : Number(employee.salary).toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
                                 })}
-                          </td>
-                          <td>
-                            {employee.deptname
-                              ? `${employee.deptname} (${employee.deptcode})`
-                              : "—"}
                           </td>
                           <td>
                             <span
@@ -485,15 +548,41 @@ function EmployeeManagement() {
                             </span>
                           </td>
                           <td>{formatDate(employee.sepdate)}</td>
-                          {canEdit && (
+                          {(canEdit || canSeparate || canRestore) && (
                             <td>
-                              <button
-                                type="button"
-                                className="employee-edit-button"
-                                onClick={() => openEditModal(employee)}
-                              >
-                                Edit
-                              </button>
+                              <div className="employee-row-actions">
+                                {canEdit && (
+                                  <button
+                                    type="button"
+                                    className="employee-edit-button"
+                                    onClick={() => openEditModal(employee)}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                {separated && canRestore && (
+                                  <button
+                                    type="button"
+                                    className="employee-restore-button"
+                                    onClick={() =>
+                                      openLifecycleConfirmation(employee, "restore")
+                                    }
+                                  >
+                                    Restore
+                                  </button>
+                                )}
+                                {!separated && canSeparate && (
+                                  <button
+                                    type="button"
+                                    className="employee-separate-button"
+                                    onClick={() =>
+                                      openLifecycleConfirmation(employee, "separate")
+                                    }
+                                  >
+                                    Mark Separated
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           )}
                         </tr>
@@ -637,18 +726,6 @@ function EmployeeManagement() {
                 </div>
 
                 <div className="customer-form-group">
-                  <label htmlFor="employee-separation-date">Separation Date</label>
-                  <input
-                    id="employee-separation-date"
-                    name="sepdate"
-                    type="date"
-                    value={form.sepdate}
-                    onChange={handleFormChange}
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="customer-form-group">
                   <label htmlFor="employee-department">Department</label>
                   <select
                     id="employee-department"
@@ -742,6 +819,114 @@ function EmployeeManagement() {
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+
+      {lifecycleAction && (
+        <div
+          className="customer-modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeLifecycleConfirmation();
+            }
+          }}
+        >
+          <section
+            className="customer-modal employee-lifecycle-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="employee-lifecycle-title"
+          >
+            <div className="customer-modal-header">
+              <h2 id="employee-lifecycle-title">
+                {lifecycleAction.action === "separate"
+                  ? "Confirm Employee Separation"
+                  : "Confirm Employee Restore"}
+              </h2>
+              <button
+                type="button"
+                className="customer-modal-close"
+                onClick={closeLifecycleConfirmation}
+                disabled={lifecycleSaving}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {lifecycleError && (
+              <div className="user-alert user-alert-error" role="alert">
+                {lifecycleError}
+              </div>
+            )}
+
+            {lifecycleAction.action === "separate" ? (
+              <>
+                <p>
+                  Mark {lifecycleAction.employee.firstname}{" "}
+                  {lifecycleAction.employee.lastname} (
+                  {lifecycleAction.employee.empno}) as separated? The employee
+                  record and job history will be retained.
+                </p>
+                <div className="customer-form-group">
+                  <label htmlFor="employee-separation-date">
+                    Separation Date
+                  </label>
+                  <input
+                    id="employee-separation-date"
+                    type="date"
+                    value={lifecycleAction.sepdate}
+                    onChange={(event) =>
+                      setLifecycleAction((current) => ({
+                        ...current,
+                        sepdate: event.target.value,
+                      }))
+                    }
+                    disabled={lifecycleSaving}
+                    required
+                  />
+                </div>
+              </>
+            ) : (
+              <p>
+                Restore {lifecycleAction.employee.firstname}{" "}
+                {lifecycleAction.employee.lastname} (
+                {lifecycleAction.employee.empno})? Their existing employee
+                information and job history will be retained.
+              </p>
+            )}
+
+            <div className="customer-modal-actions">
+              <button
+                type="button"
+                className="customer-cancel-button"
+                onClick={closeLifecycleConfirmation}
+                disabled={lifecycleSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={
+                  lifecycleAction.action === "separate"
+                    ? "employee-separate-button"
+                    : "employee-restore-button"
+                }
+                onClick={confirmLifecycleAction}
+                disabled={
+                  lifecycleSaving ||
+                  (lifecycleAction.action === "separate" &&
+                    !lifecycleAction.sepdate)
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : lifecycleAction.action === "separate"
+                    ? "Confirm Separation"
+                    : "Confirm Restore"}
+              </button>
+            </div>
           </section>
         </div>
       )}
