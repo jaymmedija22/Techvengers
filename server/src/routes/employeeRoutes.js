@@ -325,6 +325,13 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", requireEmployeePermission("employees.add"), async (req, res) => {
+  if (Object.hasOwn(req.body || {}, "sepdate")) {
+    return res.status(400).json({
+      status: "error",
+      message: "Use the employee separation action to record a separation date.",
+    });
+  }
+
   const validation = validateEmployeeData(req.body);
 
   if (validation.error) {
@@ -412,13 +419,214 @@ router.post("/", requireEmployeePermission("employees.add"), async (req, res) =>
   }
 });
 
+router.patch(
+  "/:empno/separate",
+  requireEmployeePermission("employees.delete"),
+  async (req, res) => {
+    const empno =
+      typeof req.params.empno === "string"
+        ? req.params.empno.trim().toUpperCase()
+        : "";
+    const sepdate =
+      typeof req.body?.sepdate === "string" ? req.body.sepdate.trim() : "";
+
+    if (!/^[A-Z0-9]{1,5}$/.test(empno)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Employee number must contain 1 to 5 letters or numbers.",
+      });
+    }
+    if (!isValidDate(sepdate)) {
+      return res.status(400).json({
+        status: "error",
+        message: "A valid separation date is required.",
+      });
+    }
+
+    let client;
+
+    try {
+      client = await pool.connect();
+      await client.query("BEGIN");
+
+      const employeeResult = await client.query(
+        `SELECT
+           employee.hiredate::text AS hiredate,
+           employee.sepdate::text AS sepdate,
+           (
+             SELECT TO_CHAR(MAX(jobhistory.effdate), 'YYYY-MM-DD')
+             FROM public.jobhistory
+             WHERE jobhistory.empno = employee.empno
+           ) AS latest_assignment_date
+         FROM public.employee
+         WHERE employee.empno = $1
+         FOR UPDATE`,
+        [empno]
+      );
+
+      if (employeeResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          status: "error",
+          message: "Employee not found.",
+        });
+      }
+
+      const employee = employeeResult.rows[0];
+      if (employee.sepdate) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          status: "error",
+          message: "This employee is already separated.",
+        });
+      }
+      if (sepdate < employee.hiredate) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          status: "error",
+          message: "Separation date cannot be earlier than the hire date.",
+        });
+      }
+      if (
+        employee.latest_assignment_date &&
+        sepdate < employee.latest_assignment_date
+      ) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          status: "error",
+          message: "Separation date cannot be earlier than the latest job assignment.",
+        });
+      }
+
+      const updateResult = await client.query(
+        `UPDATE public.employee
+         SET sepdate = $1
+         WHERE empno = $2
+           AND sepdate IS NULL
+         RETURNING empno, sepdate::text AS sepdate`,
+        [sepdate, empno]
+      );
+
+      if (updateResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          status: "error",
+          message: "This employee has already been separated.",
+        });
+      }
+
+      await client.query("COMMIT");
+
+      return res.json({
+        status: "success",
+        message: "Employee marked as separated. The employee record was retained.",
+        employee: updateResult.rows[0],
+      });
+    } catch (error) {
+      if (client) await client.query("ROLLBACK");
+
+      console.error("Employee separation error:", error);
+
+      return res.status(500).json({
+        status: "error",
+        message: "Unable to separate employee.",
+      });
+    } finally {
+      client?.release();
+    }
+  }
+);
+
+router.patch(
+  "/:empno/restore",
+  requireEmployeePermission("employees.restore"),
+  async (req, res) => {
+    const empno =
+      typeof req.params.empno === "string"
+        ? req.params.empno.trim().toUpperCase()
+        : "";
+
+    if (!/^[A-Z0-9]{1,5}$/.test(empno)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Employee number must contain 1 to 5 letters or numbers.",
+      });
+    }
+
+    let client;
+
+    try {
+      client = await pool.connect();
+      await client.query("BEGIN");
+
+      const employeeResult = await client.query(
+        `SELECT empno, sepdate::text AS sepdate
+         FROM public.employee
+         WHERE empno = $1
+         FOR UPDATE`,
+        [empno]
+      );
+
+      if (employeeResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          status: "error",
+          message: "Employee not found.",
+        });
+      }
+      if (!employeeResult.rows[0].sepdate) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          status: "error",
+          message: "This employee is already active.",
+        });
+      }
+
+      const updateResult = await client.query(
+        `UPDATE public.employee
+         SET sepdate = NULL
+         WHERE empno = $1
+         RETURNING empno, sepdate::text AS sepdate`,
+        [empno]
+      );
+
+      await client.query("COMMIT");
+
+      return res.json({
+        status: "success",
+        message: "Employee restored successfully. Existing employee information was retained.",
+        employee: updateResult.rows[0],
+      });
+    } catch (error) {
+      if (client) await client.query("ROLLBACK");
+
+      console.error("Employee restore error:", error);
+
+      return res.status(500).json({
+        status: "error",
+        message: "Unable to restore employee.",
+      });
+    } finally {
+      client?.release();
+    }
+  }
+);
+
 router.put(
   "/:empno",
   requireEmployeePermission("employees.edit"),
   async (req, res) => {
+    if (Object.hasOwn(req.body || {}, "sepdate")) {
+      return res.status(400).json({
+        status: "error",
+        message: "Use the employee separation or restore action to change employment status.",
+      });
+    }
+
     const validation = validateEmployeeData({
       ...req.body,
       empno: req.params.empno,
+      sepdate: null,
     });
 
     if (validation.error) {
@@ -436,7 +644,7 @@ router.put(
       await client.query("BEGIN");
 
       const existingResult = await client.query(
-        `SELECT e.hiredate, e.sepdate
+        `SELECT e.hiredate::text AS hiredate, e.sepdate::text AS sepdate
          FROM public.employee AS e
          WHERE e.empno = $1
          FOR UPDATE`,
@@ -450,6 +658,7 @@ router.put(
           message: "Employee not found.",
         });
       }
+      employee.sepdate = existingResult.rows[0].sepdate;
 
       const referenceError = await validateAssignmentReferences(
         client,
@@ -491,6 +700,16 @@ router.put(
         return res.status(400).json({
           status: "error",
           message: "Hire date cannot be later than the employee's first job assignment.",
+        });
+      }
+      if (
+        existingResult.rows[0].sepdate &&
+        employee.hiredate > existingResult.rows[0].sepdate
+      ) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          status: "error",
+          message: "Hire date cannot be later than the employee's separation date.",
         });
       }
 
@@ -548,16 +767,14 @@ router.put(
              lastname = $2,
              gender = $3,
              birthdate = $4,
-             hiredate = $5,
-             sepdate = $6
-         WHERE empno = $7`,
+             hiredate = $5
+         WHERE empno = $6`,
         [
           employee.firstname,
           employee.lastname,
           employee.gender,
           employee.birthdate,
           employee.hiredate,
-          employee.sepdate,
           employee.empno,
         ]
       );

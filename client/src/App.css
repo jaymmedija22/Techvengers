@@ -2386,6 +2386,48 @@ body {
   background: #dbeafe;
 }
 
+.employee-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.employee-separate-button,
+.employee-restore-button {
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.employee-separate-button {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.employee-separate-button:hover {
+  background: #ffedd5;
+}
+
+.employee-restore-button {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.employee-restore-button:hover {
+  background: #dcfce7;
+}
+
+.employee-separate-button:disabled,
+.employee-restore-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .employee-modal {
   max-width: 760px;
 }
