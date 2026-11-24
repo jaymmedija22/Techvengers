@@ -94,7 +94,7 @@ The following links combine dependencies stated in the GitHub issue descriptions
 4. **Lifecycle protections:** DBA-04 verifies delete constraints alongside DEV-05/06 and the department/job relationships; coordinate expected user-facing behavior with the Developer.
 5. **Data and operations:** DBA-05 should follow the required HR schema and provide repeatable data for demonstration and verification. DBA-06 should be checked against the actual HR queries and schema.
 6. **Testing and defects:** TST-01 through TST-03 depend on the corresponding Department/Job, Employee, and Job History functionality and supporting schema/validation being available in a testable build. TST-04 follows DEV-08's View Job History permission behavior. TST-05 runs against the integrated changes and existing Sprint 1–2 modules. TST-06 collects findings from all test tasks, with Developer fixes and Tester retests tracked to resolution.
-7. **Sprint control:** SM-02 establishes any carryover before commitment; SM-03 checks progress mid-sprint; SM-04 and SM-05 use verified completion and feedback at sprint end.
+7. **Sprint control:** SM-02 reviewed Sprint 2 issues and found no carryover candidate among the 30 closed task issues; see [`S3-SM-02-Sprint-2-Carryover-Review.md`](./S3-SM-02-Sprint-2-Carryover-Review.md). SM-03 checks progress mid-sprint; SM-04 and SM-05 use verified completion and feedback at sprint end.
 
 **Dependency validation required:** the current issue descriptions contain a possible ordering cycle around DBA-01/02 and DEV-06 (some database tasks list DEV-06 as a prerequisite while DEV-06 requires job-history database support). Confirm whether an existing schema is the prerequisite, then update issue dependencies to reflect a buildable order.
 
@@ -114,9 +114,9 @@ At planning and each progress update, every owner should communicate:
 ## 8. Items to Confirm with the Team
 
 - Sprint start/end dates, team capacity, and final commitment.
-- Whether any Sprint 2 work is carried over and its effect on the Sprint Goal.
+- Confirm that the Sprint 2 Project board agrees with the issue-based review: 30 closed Sprint 2 issues and no carryover identified.
 - Proposed priorities and Fibonacci estimates in the task register.
-- Project board access and synchronized status/role/priority/estimate fields for all 24 issues.
+- Project board access and synchronized status/role/priority/estimate fields for all 30 Sprint 3 issues.
 - Confirm ownership, priorities, and estimates for the six Sprint 3 Tester issues (#166–#171) and ensure each task has the intended Project board fields.
 - Resolution of the database/developer dependency ordering noted above.
 
