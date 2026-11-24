@@ -64,7 +64,7 @@ function requireEmployeePermission(rightCode) {
   };
 }
 
-async function canViewEmployeeSalary(req) {
+async function canViewEmployeeJobHistory(req) {
   if (req.employeeAccount?.role_name === "Superadmin") {
     return true;
   }
@@ -73,7 +73,7 @@ async function canViewEmployeeSalary(req) {
     `SELECT 1
      FROM public.user_permission
      WHERE user_id = $1
-       AND right_code = 'employees.salary.view'
+       AND right_code = 'job_history.view'
        AND is_deleted = FALSE
      LIMIT 1`,
     [req.employeeAccount.userid]
@@ -301,7 +301,7 @@ router.get("/", async (req, res) => {
       )`);
     }
 
-    const includeSalary = await canViewEmployeeSalary(req);
+    const includeSalary = await canViewEmployeeJobHistory(req);
     const result = await pool.query(
       `SELECT
          employee.empno,
@@ -360,13 +360,20 @@ router.get("/:empno/profile", async (req, res) => {
   }
 
   try {
-    const includeSalary = await canViewEmployeeSalary(req);
-    const salarySelect = includeSalary
+    const canViewJobHistory = await canViewEmployeeJobHistory(req);
+    const historyFields = canViewJobHistory
+      ? ", assignment.effdate::text AS assignment_effdate"
+      : "";
+    const historyJoin = canViewJobHistory
+      ? `LEFT JOIN public.jobhistory AS current_history
+           ON current_history.empno = employee.empno
+          AND current_history.effdate = assignment.effdate`
+      : "";
+    const salarySelect = canViewJobHistory
       ? ", current_history.salary::text AS current_salary"
       : "";
-    const [employeeResult, historyResult] = await Promise.all([
-      pool.query(
-        `SELECT
+    const employeeResult = await pool.query(
+      `SELECT
            employee.empno,
            employee.firstname,
            employee.lastname,
@@ -377,36 +384,16 @@ router.get("/:empno/profile", async (req, res) => {
            assignment.jobcode,
            assignment.jobdesc,
            assignment.deptcode,
-           assignment.deptname,
-           assignment.effdate::text AS assignment_effdate
+           assignment.deptname
+           ${historyFields}
            ${salarySelect}
          FROM public.employee AS employee
          LEFT JOIN public.vw_employee_current_job_department AS assignment
            ON assignment.empno = employee.empno
-         LEFT JOIN public.jobhistory AS current_history
-           ON current_history.empno = employee.empno
-          AND current_history.effdate = assignment.effdate
+         ${historyJoin}
          WHERE employee.empno = $1`,
-        [empno]
-      ),
-      pool.query(
-        `SELECT
-           history.empno,
-           history.jobcode,
-           COALESCE(job.jobdesc, history.jobcode) AS jobdesc,
-           history.deptcode,
-           department.deptname,
-           history.effdate::text AS effdate
-           ${includeSalary ? ", history.salary::text AS salary" : ""}
-         FROM public.jobhistory AS history
-         LEFT JOIN public.job AS job ON job.jobcode = history.jobcode
-         LEFT JOIN public.department AS department
-           ON department.deptcode = history.deptcode
-         WHERE history.empno = $1
-         ORDER BY history.effdate ASC, history.jobcode`,
-        [empno]
-      ),
-    ]);
+      [empno]
+    );
 
     if (employeeResult.rowCount === 0) {
       return res.status(404).json({
@@ -415,11 +402,32 @@ router.get("/:empno/profile", async (req, res) => {
       });
     }
 
+    const historyResult = canViewJobHistory
+      ? await pool.query(
+        `SELECT
+           history.empno,
+           history.jobcode,
+           COALESCE(job.jobdesc, history.jobcode) AS jobdesc,
+           history.deptcode,
+           department.deptname,
+           history.effdate::text AS effdate
+           ${canViewJobHistory ? ", history.salary::text AS salary" : ""}
+         FROM public.jobhistory AS history
+         LEFT JOIN public.job AS job ON job.jobcode = history.jobcode
+         LEFT JOIN public.department AS department
+           ON department.deptcode = history.deptcode
+         WHERE history.empno = $1
+         ORDER BY history.effdate ASC, history.jobcode`,
+        [empno]
+      )
+      : { rows: [] };
+
     return res.json({
       status: "success",
       employee: employeeResult.rows[0],
       jobHistory: historyResult.rows,
-      canViewSalary: includeSalary,
+      canViewJobHistory,
+      canViewSalary: canViewJobHistory,
     });
   } catch (error) {
     console.error("Employee profile error:", error);

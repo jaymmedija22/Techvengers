@@ -78,9 +78,12 @@ function EmployeeProfile() {
     || user?.permissions?.includes("employees.view");
   const [employee, setEmployee] = useState(null);
   const [jobHistory, setJobHistory] = useState([]);
-  const [canViewSalary, setCanViewSalary] = useState(false);
+  const [profileCanViewJobHistory, setProfileCanViewJobHistory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const canViewJobHistory = profileCanViewJobHistory
+    && (user?.role_name === "Superadmin"
+      || user?.permissions?.includes("job_history.view"));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -106,7 +109,7 @@ function EmployeeProfile() {
         if (!controller.signal.aborted) {
           setEmployee(data.employee);
           setJobHistory(data.jobHistory || []);
-          setCanViewSalary(data.canViewSalary === true);
+          setProfileCanViewJobHistory(data.canViewJobHistory === true);
         }
       } catch (fetchError) {
         if (controller.signal.aborted) return;
@@ -220,7 +223,7 @@ function EmployeeProfile() {
                     <span>Separation date</span>
                     <strong>{formatDate(employee.sepdate)}</strong>
                   </div>
-                  {canViewSalary && (
+                  {canViewJobHistory && (
                     <div>
                       <span>Current salary</span>
                       <strong>
@@ -230,7 +233,7 @@ function EmployeeProfile() {
                       </strong>
                     </div>
                   )}
-                  {employee.assignment_effdate && (
+                  {canViewJobHistory && employee.assignment_effdate && (
                     <div>
                       <span>Current assignment effective</span>
                       <strong>{formatDate(employee.assignment_effdate)}</strong>
@@ -243,12 +246,22 @@ function EmployeeProfile() {
                 <div className="user-table-heading">
                   <div>
                     <h2>Employment Timeline</h2>
-                    <p>Job and department assignments in chronological order.</p>
+                    <p>
+                      {canViewJobHistory
+                        ? "Job and department assignments in chronological order."
+                        : "Job history details require the View Job History permission."}
+                    </p>
                   </div>
-                  <span className="user-count">{jobHistory.length} records</span>
+                  {canViewJobHistory && (
+                    <span className="user-count">{jobHistory.length} records</span>
+                  )}
                 </div>
 
-                {orderedHistory.length === 0 ? (
+                {!canViewJobHistory ? (
+                  <p className="employee-timeline-empty" role="status">
+                    You do not have permission to view this employee&apos;s job history or salary details.
+                  </p>
+                ) : orderedHistory.length === 0 ? (
                   <p className="employee-timeline-empty">
                     No job history information is available for this employee.
                   </p>
@@ -258,7 +271,7 @@ function EmployeeProfile() {
                       const change = describeChange(
                         orderedHistory[index - 1],
                         record,
-                        canViewSalary
+                        canViewJobHistory
                       );
 
                       return (
@@ -286,7 +299,7 @@ function EmployeeProfile() {
                                 <span>Department</span>
                                 <strong>{record.deptname || record.deptcode || "Unavailable"}</strong>
                               </div>
-                              {canViewSalary && (
+                              {canViewJobHistory && (
                                 <div>
                                   <span>Salary</span>
                                   <strong>
