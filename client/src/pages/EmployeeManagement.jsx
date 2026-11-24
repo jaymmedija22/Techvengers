@@ -41,6 +41,8 @@ function EmployeeManagement() {
   const { user, loading: authLoading } = useAuth();
   const canView = user?.role_name === "Superadmin"
     || user?.permissions?.includes("employees.view");
+  const canViewSalary = user?.role_name === "Superadmin"
+    || user?.permissions?.includes("employees.salary.view");
   const canAdd = user?.role_name === "Superadmin"
     || user?.permissions?.includes("employees.add");
   const canEdit = user?.role_name === "Superadmin"
@@ -329,6 +331,8 @@ function EmployeeManagement() {
   }
 
   const activeCount = employees.filter((employee) => !employee.sepdate).length;
+  const hasEmployeeActions = canEdit || canSeparate || canRestore;
+  const employeeColumnCount = 9 + (canViewSalary ? 1 : 0) + (hasEmployeeActions ? 1 : 0);
 
   if (authLoading) {
     return <div className="dashboard-loading">Checking your session...</div>;
@@ -483,7 +487,7 @@ function EmployeeManagement() {
                     <th>HIRE DATE</th>
                     <th>CURRENT JOB</th>
                     <th>DEPARTMENT</th>
-                    <th>SALARY</th>
+                    {canViewSalary && <th>SALARY</th>}
                     <th>STATUS</th>
                     <th>SEPARATION DATE</th>
                     {(canEdit || canSeparate || canRestore) && <th>ACTIONS</th>}
@@ -493,7 +497,7 @@ function EmployeeManagement() {
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={canEdit || canSeparate || canRestore ? 11 : 10}
+                        colSpan={employeeColumnCount}
                         className="user-empty-state"
                       >
                         Loading employees...
@@ -502,7 +506,7 @@ function EmployeeManagement() {
                   ) : employees.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={canEdit || canSeparate || canRestore ? 11 : 10}
+                        colSpan={employeeColumnCount}
                         className="user-empty-state"
                       >
                         No employees match the current search and filters.
@@ -518,7 +522,14 @@ function EmployeeManagement() {
                       return (
                         <tr key={employee.empno}>
                           <td>{employee.empno}</td>
-                          <td>{fullName || "—"}</td>
+                          <td>
+                            <Link
+                              className="employee-profile-link"
+                              to={`/employees/${encodeURIComponent(employee.empno)}`}
+                            >
+                              {fullName || employee.empno}
+                            </Link>
+                          </td>
                           <td>{employee.gender || "—"}</td>
                           <td>{formatDate(employee.birthdate)}</td>
                           <td>{formatDate(employee.hiredate)}</td>
@@ -532,14 +543,16 @@ function EmployeeManagement() {
                               ? `${employee.deptname} (${employee.deptcode})`
                               : "—"}
                           </td>
-                          <td>
-                            {employee.salary === null || employee.salary === undefined
-                              ? "—"
-                              : Number(employee.salary).toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                          </td>
+                          {canViewSalary && (
+                            <td>
+                              {employee.salary === null || employee.salary === undefined
+                                ? "—"
+                                : Number(employee.salary).toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                            </td>
+                          )}
                           <td>
                             <span
                               className={`user-status-badge ${separated ? "inactive" : "active"}`}
@@ -763,19 +776,21 @@ function EmployeeManagement() {
                   </select>
                 </div>
 
-                <div className="customer-form-group">
-                  <label htmlFor="employee-salary">Salary (optional)</label>
-                  <input
-                    id="employee-salary"
-                    name="salary"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.salary}
-                    onChange={handleFormChange}
-                    disabled={saving}
-                  />
-                </div>
+                {canViewSalary && (
+                  <div className="customer-form-group">
+                    <label htmlFor="employee-salary">Salary (optional)</label>
+                    <input
+                      id="employee-salary"
+                      name="salary"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.salary}
+                      onChange={handleFormChange}
+                      disabled={saving}
+                    />
+                  </div>
+                )}
 
                 {editingEmployee && (
                   <div className="customer-form-group">
